@@ -29,6 +29,7 @@
 - `aliens`: array of AlienSpec
 - `obstacles`: array of ObstacleSpec
 - `ship`: ShipSpec
+ - `dance`: DanceSpec (optional)
 
 - AlienSpec
 - `x`, `y`, `w`, `h`: normalized (see above)
@@ -52,6 +53,10 @@
 - `shooter`: ShooterSpec
 - `ai`: ShipAISpec
 
+- DanceSpec
+- `hSpeed`: horizontal dance speed (pixels per second). When > 0, all aliens march horizontally in lockstep.
+- `vStep`: vertical step in pixels applied when the formation hits a screen edge.
+
 - ShooterSpec
 - `power`: integer damage per shot
 - `reloadSeconds`: seconds between shots
@@ -68,6 +73,7 @@
 - The ship is AI-controlled: moves horizontally, fires automatically with jitter around its reload, and may dodge.
 - Collisions: projectiles subtract `power` from target `health`. Objects vanish when `health <= 0`.
 - Timed levels: a countdown badge appears in the top-left when `timeLimitSeconds` is set.
+ - Dance behavior: the alien formation moves horizontally; when any alien would cross the screen edge, the whole formation steps down by `vStep` and reverses direction on the next frame.
 
 **Example**
 
@@ -101,4 +107,3 @@
 - Create `assets/levels/<your-level>.json` following the schema.
 - No changes to `pubspec.yaml` needed (the folder is already listed).
 - Update the app to load your file if needed (default is `assets/levels/level1.json`).
-

@@ -53,6 +53,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   double _shipMoveChance = 0.6;
   double _shipAvoidChance = 0.5;
   double _shipBulletSpeed = 360;
+  // Alien dance (group march)
+  double _danceHSpeed = 0; // px/s
+  double _danceVStep = 0; // px per bounce
+  int _alienDir = 1; // 1 => right, -1 => left
   bool _won = false;
   bool _lost = false;
   String? _loadError;
@@ -115,6 +119,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _updateShipAI(dt);
 
     if (_projectiles.isNotEmpty || _player != null) {
+      // Aliens dance (group march)
+      _updateAliensDance(dt);
       // Step motion
       for (final p in _projectiles) {
         p.step(dt);
@@ -202,6 +208,31 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         logv('State', 'aliens=${_aliens.length}, obstacles=${_obstacles.length}, projectiles=${_projectiles.length}');
       }
       setState(() {});
+    }
+  }
+
+  void _updateAliensDance(double dt) {
+    if (_aliens.isEmpty || _danceHSpeed <= 0) return;
+    bool willHitEdge = false;
+    final dx = _alienDir * _danceHSpeed * dt;
+    for (final a in _aliens) {
+      final nx = a.center.dx + dx;
+      final halfW = a.size.width / 2;
+      if (nx - halfW < 0 || nx + halfW > _size.width) {
+        willHitEdge = true;
+        break;
+      }
+    }
+    if (willHitEdge) {
+      for (final a in _aliens) {
+        final ny = (a.center.dy + _danceVStep).clamp(a.size.height / 2, _size.height - a.size.height / 2);
+        a.center = Offset(a.center.dx, ny);
+      }
+      _alienDir = -_alienDir;
+    } else {
+      for (final a in _aliens) {
+        a.center = Offset(a.center.dx + dx, a.center.dy);
+      }
     }
   }
 
@@ -362,6 +393,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               assetName: o.asset,
             )));
       logv('Layout', 'Spawned obstacles: ${_obstacles.length}');
+      // Dance parameters
+      _danceHSpeed = lvl.dance.hSpeed;
+      _danceVStep = lvl.dance.vStep;
+      _alienDir = 1;
     }
     _lastLayoutLevelId = currentLevelId;
     // Do not call setState here; we're in the build/layout phase via LayoutBuilder.
@@ -482,8 +517,9 @@ class _GamePainter extends CustomPainter {
 
     // Aliens
     for (final alien in aliens) {
+      final baseColor = alien.color ?? const Color(0xFF38D66B);
       final paint = Paint()
-        ..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : const Color(0xFF38D66B);
+        ..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
       canvas.drawRect(alien.rect, paint);
     }
 
@@ -491,7 +527,8 @@ class _GamePainter extends CustomPainter {
     final shipPaint = Paint();
     final s = player;
     if (s != null) {
-      shipPaint.color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : const Color(0xFF5AA9E6);
+      final baseColor = s.color ?? const Color(0xFF5AA9E6);
+      shipPaint.color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
       canvas.drawRect(s.rect, shipPaint);
     }
 
@@ -503,8 +540,9 @@ class _GamePainter extends CustomPainter {
 
     // Obstacles
     for (final o in obstacles) {
+      final baseColor = o.color ?? const Color(0xFF9AA0A6);
       final obPaint = Paint()
-        ..color = o.isFlashing(now) ? const Color(0xFFFFFFFF) : const Color(0xFF9AA0A6);
+        ..color = o.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
       canvas.drawRect(o.rect, obPaint);
     }
   }

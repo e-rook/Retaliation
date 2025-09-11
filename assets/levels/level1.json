@@ -5,6 +5,7 @@
   "winMessage": "Ship destroyed. Well done!",
   "loseMessage": "Time's up! The ship survived.",
   "timeLimitSeconds": 30,
+  "dance": {"hSpeed": 40, "vStep": 18},
   "winConditions": ["ship_destroyed"],
   "loseConditions": ["timer_elapsed"],
   "aliens": [

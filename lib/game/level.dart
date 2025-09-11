@@ -161,6 +161,7 @@ class LevelConfig {
   final List<AlienSpec> aliens;
   final List<ObstacleSpec> obstacles;
   final ShipSpec ship;
+  final DanceSpec dance;
 
   LevelConfig({
     required this.id,
@@ -174,6 +175,7 @@ class LevelConfig {
     required this.aliens,
     required this.obstacles,
     required this.ship,
+    required this.dance,
   });
 
   factory LevelConfig.fromJson(Map<String, dynamic> j) => LevelConfig(
@@ -188,6 +190,7 @@ class LevelConfig {
         aliens: ((j['aliens'] as List?) ?? []).map((e) => AlienSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
         obstacles: ((j['obstacles'] as List?) ?? []).map((e) => ObstacleSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
         ship: ShipSpec.fromJson(Map<String, dynamic>.from(j['ship'] as Map? ?? {})),
+        dance: DanceSpec.fromJson(Map<String, dynamic>.from(j['dance'] as Map? ?? {})),
       );
 
   static Future<LevelConfig> loadFromAsset(String assetPath) async {
@@ -201,6 +204,18 @@ class LevelConfig {
     logv('Level', 'Level loaded: id=${lvl.id}, aliens=${lvl.aliens.length}, obstacles=${lvl.obstacles.length}');
     return lvl;
   }
+}
+
+class DanceSpec {
+  final double hSpeed; // horizontal speed in px/s
+  final double vStep; // vertical step in px when bouncing
+
+  const DanceSpec({this.hSpeed = 0, this.vStep = 0});
+
+  factory DanceSpec.fromJson(Map<String, dynamic> j) => DanceSpec(
+        hSpeed: (j['hSpeed'] ?? 0).toDouble(),
+        vStep: (j['vStep'] ?? 0).toDouble(),
+      );
 }
 
 Color? _parseColor(dynamic v) {
