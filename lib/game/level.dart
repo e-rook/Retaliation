@@ -1,0 +1,222 @@
+import 'dart:convert';
+import 'dart:ui';
+import 'package:flutter/services.dart' show rootBundle;
+import '../util/log.dart';
+
+class ShooterSpec {
+  final int power;
+  final double reloadSeconds;
+  final double bulletSpeed;
+
+  const ShooterSpec({required this.power, required this.reloadSeconds, required this.bulletSpeed});
+
+  factory ShooterSpec.fromJson(Map<String, dynamic> j) => ShooterSpec(
+        power: (j['power'] ?? 1) as int,
+        reloadSeconds: (j['reloadSeconds'] ?? 1.0).toDouble(),
+        bulletSpeed: (j['bulletSpeed'] ?? 280).toDouble(),
+      );
+}
+
+class AlienSpec {
+  final double x; // normalized 0..1 (center)
+  final double y; // normalized 0..1 (center)
+  final double w; // normalized width
+  final double h; // normalized height
+  final int health;
+  final String? asset;
+  final Color? color;
+  final double speed; // reserved for movement
+  final ShooterSpec shooter;
+
+  AlienSpec({
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
+    required this.health,
+    required this.asset,
+    required this.color,
+    required this.speed,
+    required this.shooter,
+  });
+
+  factory AlienSpec.fromJson(Map<String, dynamic> j) => AlienSpec(
+        x: (j['x'] as num).toDouble(),
+        y: (j['y'] as num).toDouble(),
+        w: (j['w'] as num).toDouble(),
+        h: (j['h'] as num).toDouble(),
+        health: (j['health'] ?? 1) as int,
+        asset: j['asset'] as String?,
+        color: _parseColor(j['color']),
+        speed: (j['speed'] ?? 0).toDouble(),
+        shooter: ShooterSpec.fromJson(j['shooter'] as Map<String, dynamic>? ?? const {}),
+      );
+}
+
+class ObstacleSpec {
+  final double x;
+  final double y;
+  final double w;
+  final double h;
+  final int health;
+  final String? asset;
+  final Color? color;
+
+  ObstacleSpec({
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
+    required this.health,
+    required this.asset,
+    required this.color,
+  });
+
+  factory ObstacleSpec.fromJson(Map<String, dynamic> j) => ObstacleSpec(
+        x: (j['x'] as num).toDouble(),
+        y: (j['y'] as num).toDouble(),
+        w: (j['w'] as num).toDouble(),
+        h: (j['h'] as num).toDouble(),
+        health: (j['health'] ?? 5) as int,
+        asset: j['asset'] as String?,
+        color: _parseColor(j['color']),
+      );
+}
+
+class ShipAISpec {
+  final double moveChancePerSecond;
+  final double avoidChance;
+  final double moveSpeed;
+
+  const ShipAISpec({required this.moveChancePerSecond, required this.avoidChance, required this.moveSpeed});
+
+  factory ShipAISpec.fromJson(Map<String, dynamic> j) => ShipAISpec(
+        moveChancePerSecond: (j['moveChancePerSecond'] ?? 0.5).toDouble(),
+        avoidChance: (j['avoidChance'] ?? 0.5).toDouble(),
+        moveSpeed: (j['moveSpeed'] ?? 220).toDouble(),
+      );
+}
+
+class ShipSpec {
+  final double x;
+  final double y;
+  final double w;
+  final double h;
+  final int health;
+  final String? asset;
+  final Color? color;
+  final ShooterSpec shooter;
+  final ShipAISpec ai;
+
+  ShipSpec({
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
+    required this.health,
+    required this.asset,
+    required this.color,
+    required this.shooter,
+    required this.ai,
+  });
+
+  factory ShipSpec.fromJson(Map<String, dynamic> j) => ShipSpec(
+        x: (j['x'] as num).toDouble(),
+        y: (j['y'] as num).toDouble(),
+        w: (j['w'] as num).toDouble(),
+        h: (j['h'] as num).toDouble(),
+        health: (j['health'] ?? 3) as int,
+        asset: j['asset'] as String?,
+        color: _parseColor(j['color']),
+        shooter: ShooterSpec.fromJson(j['shooter'] as Map<String, dynamic>? ?? const {}),
+        ai: ShipAISpec.fromJson(j['ai'] as Map<String, dynamic>? ?? const {}),
+      );
+}
+
+enum ConditionKind { shipDestroyed, aliensDestroyed, surviveTime, timerElapsed }
+
+ConditionKind _parseCondition(String s) {
+  switch (s) {
+    case 'ship_destroyed':
+      return ConditionKind.shipDestroyed;
+    case 'aliens_destroyed':
+      return ConditionKind.aliensDestroyed;
+    case 'survive_time':
+      return ConditionKind.surviveTime;
+    case 'timer_elapsed':
+      return ConditionKind.timerElapsed;
+  }
+  return ConditionKind.shipDestroyed;
+}
+
+class LevelConfig {
+  final String id;
+  final String title;
+  final String description;
+  final String winMessage;
+  final String loseMessage;
+  final double? timeLimitSeconds;
+  final List<ConditionKind> winConditions;
+  final List<ConditionKind> loseConditions;
+  final List<AlienSpec> aliens;
+  final List<ObstacleSpec> obstacles;
+  final ShipSpec ship;
+
+  LevelConfig({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.winMessage,
+    required this.loseMessage,
+    required this.timeLimitSeconds,
+    required this.winConditions,
+    required this.loseConditions,
+    required this.aliens,
+    required this.obstacles,
+    required this.ship,
+  });
+
+  factory LevelConfig.fromJson(Map<String, dynamic> j) => LevelConfig(
+        id: (j['id'] ?? 'level').toString(),
+        title: (j['title'] ?? '').toString(),
+        description: (j['description'] ?? '').toString(),
+        winMessage: (j['winMessage'] ?? 'You win!').toString(),
+        loseMessage: (j['loseMessage'] ?? 'You lose!').toString(),
+        timeLimitSeconds: (j['timeLimitSeconds'] as num?)?.toDouble(),
+        winConditions: ((j['winConditions'] as List?) ?? ['ship_destroyed']).map((e) => _parseCondition(e.toString())).toList(),
+        loseConditions: ((j['loseConditions'] as List?) ?? ['timer_elapsed']).map((e) => _parseCondition(e.toString())).toList(),
+        aliens: ((j['aliens'] as List?) ?? []).map((e) => AlienSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
+        obstacles: ((j['obstacles'] as List?) ?? []).map((e) => ObstacleSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
+        ship: ShipSpec.fromJson(Map<String, dynamic>.from(j['ship'] as Map? ?? {})),
+      );
+
+  static Future<LevelConfig> loadFromAsset(String assetPath) async {
+    logv('Level', 'Loading asset: $assetPath');
+    final raw = await rootBundle.loadString(assetPath);
+    logv('Level', 'Loaded ${raw.length} chars. Stripping comments...');
+    final cleaned = _stripComments(raw);
+    final map = json.decode(cleaned) as Map<String, dynamic>;
+    logv('Level', 'Parsed JSON, building LevelConfig...');
+    final lvl = LevelConfig.fromJson(map);
+    logv('Level', 'Level loaded: id=${lvl.id}, aliens=${lvl.aliens.length}, obstacles=${lvl.obstacles.length}');
+    return lvl;
+  }
+}
+
+Color? _parseColor(dynamic v) {
+  if (v == null) return null;
+  final s = v.toString();
+  // Accept formats like "#RRGGBB" or "#AARRGGBB"
+  String hex = s.startsWith('#') ? s.substring(1) : s;
+  if (hex.length == 6) hex = 'FF$hex';
+  final value = int.tryParse(hex, radix: 16);
+  if (value == null) return null;
+  return Color(value);
+}
+
+String _stripComments(String input) {
+  // Remove /* */ block comments and // line comments (outside of strings in most simple cases)
+  final noBlock = input.replaceAll(RegExp(r"/\*.*?\*/", dotAll: true), "");
+  final noLine = noBlock.replaceAll(RegExp(r"^\s*//.*", multiLine: true), "");
+  return noLine;
+}

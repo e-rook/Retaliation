@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'game/objects.dart';
 import 'game/projectile.dart';
+import 'game/level.dart';
+import 'util/log.dart';
 import 'dart:math';
 
 void main() {
+  logv('App', 'main() starting');
   runApp(const GameApp());
 }
 
@@ -30,8 +33,6 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
-  static const int alienRows = 2;
-  static const int alienCols = 6;
 
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
@@ -44,21 +45,43 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   double _elapsedSeconds = 0;
   final Random _rng = Random();
   double? _nextPlayerShotAt;
+  LevelConfig? _level;
+  String? _lastLayoutLevelId;
+  // Ship AI runtime
+  double? _shipTargetX;
+  double _shipMoveSpeed = 220;
+  double _shipMoveChance = 0.6;
+  double _shipAvoidChance = 0.5;
+  double _shipBulletSpeed = 360;
+  bool _won = false;
+  bool _lost = false;
+  String? _loadError;
+  bool _tickLoggedOnce = false;
+  double _lastTelemetry = 0;
 
   // Tunables
-  final double _alienWidthFactor = 0.1; // relative to width
-  final double _alienHeightFactor = 0.06; // relative to height
-  final double _shipWidthFactor = 0.16;
-  final double _shipHeightFactor = 0.035;
-  final double _rowTopMarginFactor = 0.12;
-  final double _rowSpacingFactor = 0.06;
-  final double _colSpacingFactor = 0.04;
   final double _projectileSpeed = 280; // px/s downward
 
   @override
   void initState() {
     super.initState();
+    logv('Game', 'initState');
     _ticker = createTicker(_onTick)..start();
+    // Load default level
+    LevelConfig.loadFromAsset('assets/levels/level1.json').then((lvl) {
+      if (!mounted) return;
+      setState(() {
+        _level = lvl;
+      });
+      logv('Game', 'Level ready: ${lvl.id}');
+    }).catchError((e, st) {
+      // Surface load errors to the UI to avoid a confusing blank screen
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'Failed to load level: $e';
+      });
+      logv('Game', 'Level load error: $e');
+    });
   }
 
   @override
@@ -76,7 +99,22 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _lastTick = elapsed;
 
     _elapsedSeconds += dt;
-    if (_projectiles.isNotEmpty) {
+    if (!_tickLoggedOnce) {
+      logv('Tick', 'Ticker started.');
+      _tickLoggedOnce = true;
+    }
+    if (_level == null || _won || _lost) {
+      if (_elapsedSeconds - _lastTelemetry >= 1.0) {
+        _lastTelemetry = _elapsedSeconds;
+        logv('Tick', 'waiting=${_level == null}, won=$_won, lost=$_lost');
+      }
+      return; // wait for level or stop on end
+    }
+
+    // Ship AI: plan and move
+    _updateShipAI(dt);
+
+    if (_projectiles.isNotEmpty || _player != null) {
       // Step motion
       for (final p in _projectiles) {
         p.step(dt);
@@ -86,18 +124,20 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           p.center.dy - p.size.height / 2 > _size.height ||
           p.center.dy + p.size.height / 2 < 0);
 
-      // Auto-fire from player at random intervals (1-4s)
+      // Auto-fire from ship based on level spec (with slight randomness)
       final s = _player;
       if (s != null) {
-        _nextPlayerShotAt ??= _elapsedSeconds + 1 + _rng.nextDouble() * 3;
+        _nextPlayerShotAt ??= _elapsedSeconds + 0.5 + _rng.nextDouble() * 1.0;
         if (_elapsedSeconds >= (_nextPlayerShotAt ?? 0) && s.canShoot(_elapsedSeconds)) {
           _fireFromPlayer(s);
-          _nextPlayerShotAt = _elapsedSeconds + 1 + _rng.nextDouble() * 3;
+          // Next shot time: around reload +/- 50%
+          final reload = s.reloadSeconds;
+          final jitter = (0.5 + _rng.nextDouble()) * 0.5; // 0.25..0.75
+          _nextPlayerShotAt = _elapsedSeconds + reload * (1.0 + jitter);
         }
       }
 
       // Collisions
-      bool anyCollision = false;
       // Iterate over a copy so we can remove safely
       for (final p in List<Projectile>.from(_projectiles)) {
         if (p.ownerKind == 'player') {
@@ -106,14 +146,15 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             if (p.rect.overlaps(a.rect)) {
               a.health -= p.damage;
               a.flash(_elapsedSeconds);
+              logv('Hit', 'Ship shot alien: health=${a.health}');
               hitAlien = a;
-              anyCollision = true;
               break;
             }
           }
           if (hitAlien != null) {
             _projectiles.remove(p);
             if (hitAlien.health <= 0) {
+              logv('Kill', 'Alien destroyed');
               _aliens.remove(hitAlien);
             }
             continue;
@@ -125,14 +166,15 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             if (p.rect.overlaps(o.rect)) {
               o.health -= p.damage;
               o.flash(_elapsedSeconds);
+              logv('Hit', 'Alien shot obstacle: health=${o.health}');
               hitObs = o;
-              anyCollision = true;
               break;
             }
           }
           if (hitObs != null) {
             _projectiles.remove(p);
             if (hitObs.health <= 0) {
+              logv('Kill', 'Obstacle destroyed');
               _obstacles.remove(hitObs);
             }
             continue;
@@ -142,9 +184,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           if (ps != null && p.rect.overlaps(ps.rect)) {
             ps.health -= p.damage;
             ps.flash(_elapsedSeconds);
-            anyCollision = true;
+            logv('Hit', 'Alien shot ship: health=${ps.health}');
             _projectiles.remove(p);
             if (ps.health <= 0) {
+              logv('Kill', 'Ship destroyed');
               _player = null;
             }
             continue;
@@ -152,73 +195,175 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         }
       }
 
-      if (anyCollision) {
-        setState(() {});
+      // Win/Lose evaluation
+      _evaluateEndConditions();
+      if (_elapsedSeconds - _lastTelemetry >= 1.0) {
+        _lastTelemetry = _elapsedSeconds;
+        logv('State', 'aliens=${_aliens.length}, obstacles=${_obstacles.length}, projectiles=${_projectiles.length}');
+      }
+      setState(() {});
+    }
+  }
+
+  String _formatTimer() {
+    final limit = _level?.timeLimitSeconds;
+    if (limit == null) return '';
+    double remaining = (limit - _elapsedSeconds);
+    if (remaining < 0) remaining = 0;
+    final total = remaining.floor();
+    if (limit >= 60) {
+      final m = total ~/ 60;
+      final s = total % 60;
+      return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    } else {
+      return total.toString().padLeft(2, '0');
+    }
+  }
+
+  void _updateShipAI(double dt) {
+    final s = _player;
+    if (s == null) return;
+    // Movement target selection
+    if (_shipTargetX == null || (s.center.dx - (_shipTargetX ?? s.center.dx)).abs() < 3) {
+      if (_rng.nextDouble() < _shipMoveChance * dt) {
+        _shipTargetX = _rng.nextDouble() * _size.width;
+      }
+    }
+
+    // Avoidance: consider nearest alien projectile approaching
+    Projectile? danger;
+    double bestDy = double.infinity;
+    for (final p in _projectiles) {
+      if (p.ownerKind != 'alien') continue; // player's shots
+      final dy = (s.center.dy - p.center.dy);
+      if (dy > 0 && dy < bestDy && (p.center - s.center).distance < _size.width * 0.3) {
+        bestDy = dy;
+        danger = p;
+      }
+    }
+    if (danger != null && _rng.nextDouble() < _shipAvoidChance * dt) {
+      final away = (s.center.dx - danger.center.dx) >= 0 ? 1 : -1;
+      final target = (s.center.dx + away * _size.width * 0.25).clamp(0 + s.size.width / 2, _size.width - s.size.width / 2);
+      _shipTargetX = target.toDouble();
+    }
+
+    // Move toward target
+    final tx = _shipTargetX;
+    if (tx != null) {
+      final dir = tx - s.center.dx;
+      final step = _shipMoveSpeed * dt * dir.sign;
+      if (dir.abs() <= step.abs()) {
+        s.center = Offset(tx, s.center.dy);
       } else {
-        // Still repaint to animate motion if no collisions
-        setState(() {});
+        s.center = Offset((s.center.dx + step).clamp(s.size.width / 2, _size.width - s.size.width / 2), s.center.dy);
       }
     }
   }
 
-  void _layout(Size size) {
-    if (size == _size) return;
-    _size = size;
+  void _evaluateEndConditions() {
+    final lvl = _level;
+    if (lvl == null) return;
+    bool win = false;
+    bool lose = false;
+    bool timerElapsed = lvl.timeLimitSeconds != null && _elapsedSeconds >= (lvl.timeLimitSeconds ?? 0);
 
-    final alienW = size.width * _alienWidthFactor;
-    final alienH = size.height * _alienHeightFactor;
-    final top = size.height * _rowTopMarginFactor;
-    final rowGap = size.height * _rowSpacingFactor;
+    bool shipDestroyed = _player == null;
+    bool aliensDestroyed = _aliens.isEmpty;
 
-    // Compute total width of aliens plus gaps to center the grid
-    final totalAliensW = alienCols * alienW;
-    final gaps = (alienCols - 1) * (size.width * _colSpacingFactor);
-    final startX = (size.width - (totalAliensW + gaps)) / 2;
-
-    final aliens = <Alien>[];
-    for (int r = 0; r < alienRows; r++) {
-      for (int c = 0; c < alienCols; c++) {
-        final x = startX + c * (alienW + size.width * _colSpacingFactor);
-        final y = top + r * (alienH + rowGap);
-        aliens.add(
-          Alien(
-            center: Offset(x + alienW / 2, y + alienH / 2),
-            size: Size(alienW, alienH),
-            assetName: null,
-            health: 1,
-            power: 1,
-            reload: 0.8,
-          ),
-        );
+    for (final c in lvl.winConditions) {
+      switch (c) {
+        case ConditionKind.shipDestroyed:
+          win |= shipDestroyed;
+          break;
+        case ConditionKind.aliensDestroyed:
+          win |= aliensDestroyed;
+          break;
+        case ConditionKind.surviveTime:
+          win |= timerElapsed;
+          break;
+        case ConditionKind.timerElapsed:
+          win |= timerElapsed;
+          break;
       }
     }
-    _aliens = aliens;
-
-    final shipW = size.width * _shipWidthFactor;
-    final shipH = size.height * _shipHeightFactor;
-    _player = PlayerShip(
-      center: Offset(size.width / 2, size.height - shipH * 1.5),
-      size: Size(shipW, shipH),
-      assetName: null,
-      health: 3,
-      power: 1,
-      reload: 0.3,
-    );
-    _nextPlayerShotAt = _elapsedSeconds + 1 + _rng.nextDouble() * 3;
-
-    // Obstacles (shields) — simple blocks above the ship
-    _obstacles.clear();
-    final shieldW = size.width * 0.18;
-    final shieldH = size.height * 0.04;
-    final y = size.height - shipH * 3.5;
-    final gapsCount = 2;
-    final totalShieldsW = 3 * shieldW;
-    final gap = (size.width - totalShieldsW) / (3 + gapsCount);
-    double cx = gap + shieldW / 2;
-    for (int i = 0; i < 3; i++) {
-      _obstacles.add(Obstacle(center: Offset(cx, y), size: Size(shieldW, shieldH), health: 5));
-      cx += shieldW + gap;
+    for (final c in lvl.loseConditions) {
+      switch (c) {
+        case ConditionKind.shipDestroyed:
+          lose |= shipDestroyed;
+          break;
+        case ConditionKind.aliensDestroyed:
+          lose |= aliensDestroyed;
+          break;
+        case ConditionKind.surviveTime:
+          lose |= timerElapsed;
+          break;
+        case ConditionKind.timerElapsed:
+          lose |= timerElapsed;
+          break;
+      }
     }
+    if (win) {
+      _won = true;
+    } else if (lose) {
+      _lost = true;
+    }
+  }
+
+  void _layout(Size size) {
+    final didSizeChange = size != _size;
+    final currentLevelId = _level?.id;
+    final didLevelChange = currentLevelId != _lastLayoutLevelId;
+    if (!didSizeChange && !didLevelChange) return;
+    _size = size;
+    logv('Layout', 'Game surface size: ${size.width.toStringAsFixed(1)} x ${size.height.toStringAsFixed(1)}');
+
+    if (_level != null) {
+      final lvl = _level!;
+      // Aliens from spec
+      _aliens = lvl.aliens
+          .map((a) => Alien(
+                center: Offset(a.x * size.width, a.y * size.height),
+                size: Size(a.w * size.width, a.h * size.height),
+                health: a.health,
+                assetName: a.asset,
+                color: a.color,
+                power: a.shooter.power,
+                reload: a.shooter.reloadSeconds,
+              ))
+          .toList();
+      logv('Layout', 'Spawned aliens: ${_aliens.length}');
+
+      // Ship from spec
+      final s = lvl.ship;
+      _player = PlayerShip(
+        center: Offset(s.x * size.width, s.y * size.height),
+        size: Size(s.w * size.width, s.h * size.height),
+        health: s.health,
+        assetName: s.asset,
+        color: s.color,
+        power: s.shooter.power,
+        reload: s.shooter.reloadSeconds,
+      );
+      _shipMoveSpeed = s.ai.moveSpeed;
+      _shipMoveChance = s.ai.moveChancePerSecond;
+      _shipAvoidChance = s.ai.avoidChance;
+      _shipBulletSpeed = s.shooter.bulletSpeed;
+      _nextPlayerShotAt = _elapsedSeconds + 0.5 + _rng.nextDouble();
+      logv('Layout', 'Ship ready. moveSpeed=$_shipMoveSpeed reload=${_player?.reloadSeconds}');
+
+      // Obstacles from spec
+      _obstacles
+        ..clear()
+        ..addAll(lvl.obstacles.map((o) => Obstacle(
+              center: Offset(o.x * size.width, o.y * size.height),
+              size: Size(o.w * size.width, o.h * size.height),
+              health: o.health,
+              color: o.color,
+              assetName: o.asset,
+            )));
+      logv('Layout', 'Spawned obstacles: ${_obstacles.length}');
+    }
+    _lastLayoutLevelId = currentLevelId;
     // Do not call setState here; we're in the build/layout phase via LayoutBuilder.
     // The new geometry is immediately used in this build pass.
   }
@@ -230,12 +375,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         _fireFromAlien(alien);
         break;
       }
-    }
-
-    // If tap is on player, shoot upwards
-    final s = _player;
-    if (s != null && s.rect.contains(pos)) {
-      _fireFromPlayer(s);
     }
   }
 
@@ -251,6 +390,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       ),
     );
     alien.recordShot(_elapsedSeconds);
+    logv('Fire', 'Alien fired from x=${alien.center.dx.toStringAsFixed(1)}');
     setState(() {});
   }
 
@@ -260,12 +400,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _projectiles.add(
       Projectile(
         center: start,
-        velocity: const Offset(0, -360),
+        velocity: Offset(0, -_shipBulletSpeed),
         damage: player.shootingPower,
         ownerKind: 'player',
       ),
     );
     player.recordShot(_elapsedSeconds);
+    logv('Fire', 'Ship fired');
     setState(() {});
   }
 
@@ -276,19 +417,46 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         child: LayoutBuilder(
           builder: (context, constraints) {
             _layout(Size(constraints.maxWidth, constraints.maxHeight));
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: _handleTap,
-              child: CustomPaint(
-                painter: _GamePainter(
-                  aliens: _aliens,
-                  player: _player,
-                  obstacles: _obstacles,
-                  projectiles: _projectiles,
-                  now: _elapsedSeconds,
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: _handleTap,
+                  child: CustomPaint(
+                    painter: _GamePainter(
+                      aliens: _aliens,
+                      player: _player,
+                      obstacles: _obstacles,
+                      projectiles: _projectiles,
+                      now: _elapsedSeconds,
+                    ),
+                    size: Size.infinite,
+                  ),
                 ),
-                size: Size.infinite,
-              ),
+                if (_level?.timeLimitSeconds != null)
+                  Positioned(
+                    left: 10,
+                    top: 8,
+                    child: _TimerBadge(text: _formatTimer()),
+                  ),
+                if (_loadError != null)
+                  Center(
+                    child: _MessageCard(text: _loadError!),
+                  )
+                else if (_level == null)
+                  const Center(
+                    child: _MessageCard(text: 'Loading level...'),
+                  )
+                else if (_won)
+                  Center(
+                    child: _MessageCard(text: _level!.winMessage),
+                  )
+                else if (_lost)
+                  Center(
+                    child: _MessageCard(text: _level!.loseMessage),
+                  ),
+              ],
             );
           },
         ),
@@ -347,5 +515,52 @@ class _GamePainter extends CustomPainter {
         oldDelegate.player != player ||
         oldDelegate.obstacles != obstacles ||
         oldDelegate.projectiles != projectiles;
+  }
+}
+
+class _MessageCard extends StatelessWidget {
+  final String text;
+  const _MessageCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF000000).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 16, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _TimerBadge extends StatelessWidget {
+  final String text;
+  const _TimerBadge({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF000000).withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
   }
 }

@@ -6,6 +6,7 @@ class GameObject {
   Size size;
   final String? assetName;
   int health;
+  Color? color;
   double _flashUntilSeconds = -1.0;
 
   GameObject({
@@ -14,6 +15,7 @@ class GameObject {
     required this.size,
     this.assetName,
     this.health = 1,
+    this.color,
   });
 
   Rect get rect => Rect.fromCenter(center: center, width: size.width, height: size.height);
@@ -42,6 +44,7 @@ class Alien extends GameObject with Shooter {
     required super.size,
     super.assetName,
     super.health = 1,
+    super.color,
     int power = 1,
     double reload = 1.0,
   }) : super(kind: 'alien') {
@@ -56,6 +59,7 @@ class UFO extends GameObject with Shooter {
     required super.size,
     super.assetName,
     super.health = 3,
+    super.color,
     int power = 1,
     double reload = 1.5,
   }) : super(kind: 'ufo') {
@@ -70,6 +74,7 @@ class PlayerShip extends GameObject with Shooter {
     required super.size,
     super.assetName,
     super.health = 3,
+    super.color,
     int power = 1,
     double reload = 0.4,
   }) : super(kind: 'player') {
@@ -84,5 +89,6 @@ class Obstacle extends GameObject {
     required super.size,
     super.assetName,
     super.health = 5,
+    super.color,
   }) : super(kind: 'obstacle');
 }
