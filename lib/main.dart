@@ -605,9 +605,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             } else if (_level == null) {
               overlay = const Center(child: _MessageCard(text: 'Loading level...'));
             } else if (_won) {
-              overlay = Center(child: _MessageCard(text: _level!.winMessage));
+              overlay = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openLevelPicker,
+                child: Center(child: _MessageCard(text: _level!.winMessage)),
+              );
             } else if (_lost) {
-              overlay = Center(child: _MessageCard(text: _level!.loseMessage));
+              overlay = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openLevelPicker,
+                child: Center(child: _MessageCard(text: _level!.loseMessage)),
+              );
             }
 
             return Stack(
