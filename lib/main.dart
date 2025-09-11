@@ -224,11 +224,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       }
     }
     if (willHitEdge) {
+      // Step down, reverse, then immediately continue horizontal move this tick
       for (final a in _aliens) {
         final ny = (a.center.dy + _danceVStep).clamp(a.size.height / 2, _size.height - a.size.height / 2);
         a.center = Offset(a.center.dx, ny);
       }
       _alienDir = -_alienDir;
+      final dx2 = _alienDir * _danceHSpeed * dt;
+      for (final a in _aliens) {
+        final halfW = a.size.width / 2;
+        final nx2 = (a.center.dx + dx2).clamp(halfW, _size.width - halfW);
+        a.center = Offset(nx2, a.center.dy);
+      }
     } else {
       for (final a in _aliens) {
         a.center = Offset(a.center.dx + dx, a.center.dy);
