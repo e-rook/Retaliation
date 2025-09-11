@@ -4,9 +4,11 @@ import 'game/objects.dart';
 import 'game/projectile.dart';
 import 'game/level.dart';
 import 'game/level_validator.dart';
+import 'game/level_list.dart';
 import 'util/log.dart';
 import 'designer/designer_page.dart';
 import 'designer/level_select_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 void main() {
@@ -49,6 +51,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final Random _rng = Random();
   double? _nextPlayerShotAt;
   LevelConfig? _level;
+  LevelList? _order;
+  String? _currentLevelPath;
+  // current level path tracked in _currentLevelPath; order in _order
   String? _lastLayoutLevelId;
   // Ship AI runtime
   double? _shipTargetX;
@@ -74,28 +79,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     super.initState();
     logv('Game', 'initState');
     _ticker = createTicker(_onTick)..start();
-    // Load default level
-    LevelConfig.loadFromAsset('assets/levels/level1.json').then((lvl) {
-      if (!mounted) return;
-      final validation = validateLevel(lvl);
-      if (!validation.isValid) {
-        setState(() {
-          _loadError = 'Level validation failed:\n- ${validation.errors.join('\n- ')}';
-        });
-      } else {
-        setState(() {
-          _level = lvl;
-        });
-      }
-      logv('Game', 'Level ready: ${lvl.id}');
-    }).catchError((e, st) {
-      // Surface load errors to the UI to avoid a confusing blank screen
-      if (!mounted) return;
-      setState(() {
-        _loadError = 'Failed to load level: $e';
-      });
-      logv('Game', 'Level load error: $e');
-    });
+    _bootstrap();
   }
 
   @override
@@ -221,6 +205,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     }
   }
 
+  Future<void> _bootstrap() async {
+    try {
+      final order = await LevelList.loadFromAsset('assets/levels/levels.json');
+      final prefs = await SharedPreferences.getInstance();
+      final unlocked = (prefs.getInt('unlocked_count') ?? 1).clamp(1, order.levels.length);
+      _order = order;
+      _currentLevelPath = order.levels.isNotEmpty ? order.levels[0] : 'assets/levels/level1.json';
+      final lvl = await LevelConfig.loadFromAsset(_currentLevelPath!);
+      final validation = validateLevel(lvl);
+      if (!mounted) return;
+      if (!validation.isValid) {
+        setState(() {
+          _loadError = 'Level validation failed:\n- ${validation.errors.join('\n- ')}';
+        });
+      } else {
+        setState(() {
+          _level = lvl;
+        });
+      }
+      logv('Game', 'Level ready: ${lvl.id}; unlocked=$unlocked');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'Failed to load levels: $e';
+      });
+    }
+  }
+
   Future<void> _openDesigner() async {
     final lvl = _level;
     if (lvl == null) return;
@@ -273,6 +285,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           _projectiles.clear();
           _player = null;
           _lastLayoutLevelId = null;
+          _currentLevelPath = selected;
         });
       } catch (e) {
         if (!mounted) return;
@@ -419,9 +432,25 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       }
     }
     if (win) {
-      _won = true;
+      if (!_won) {
+        _won = true;
+        _unlockNextLevel();
+      }
     } else if (lose) {
       _lost = true;
+    }
+  }
+
+  Future<void> _unlockNextLevel() async {
+    if (_order == null || _currentLevelPath == null) return;
+    final idx = _order!.levels.indexOf(_currentLevelPath!);
+    if (idx < 0) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getInt('unlocked_count') ?? 1;
+    final want = (idx + 2).clamp(1, _order!.levels.length);
+    if (want > current) {
+      await prefs.setInt('unlocked_count', want);
+      logv('Progress', 'Unlocked levels: $want');
     }
   }
 

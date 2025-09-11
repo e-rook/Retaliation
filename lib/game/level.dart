@@ -205,7 +205,7 @@ ConditionKind _parseCondition(String s) {
 
 class LevelConfig {
   final String id;
-  final String title;
+  final String title; // display name (from JSON 'name' or 'title')
   final String description;
   final String winMessage;
   final String loseMessage;
@@ -234,7 +234,7 @@ class LevelConfig {
 
   factory LevelConfig.fromJson(Map<String, dynamic> j) => LevelConfig(
         id: (j['id'] ?? 'level').toString(),
-        title: (j['title'] ?? '').toString(),
+        title: ((j['name'] ?? j['title']) ?? '').toString(),
         description: (j['description'] ?? '').toString(),
         winMessage: (j['winMessage'] ?? 'You win!').toString(),
         loseMessage: (j['loseMessage'] ?? 'You lose!').toString(),
@@ -249,7 +249,7 @@ class LevelConfig {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'title': title,
+        'name': title,
         'description': description,
         'winMessage': winMessage,
         'loseMessage': loseMessage,

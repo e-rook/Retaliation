@@ -1,6 +1,6 @@
 {
   "id": "level1",
-  "title": "Opening Salvo",
+  "title": "Keep going",
   "description": "You command the aliens. Tap an alien to fire. The ship fights back and will try to dodge. Destroy the ship before time runs out.",
   "winMessage": "Ship destroyed. Well done!",
   "loseMessage": "Time's up! The ship survived.",
