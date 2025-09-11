@@ -1,0 +1,330 @@
+{
+  "id": "level1",
+  "title": "Opening Salvo",
+  "description": "You command the aliens. Tap an alien to fire. The ship fights back and will try to dodge. Destroy the ship before time runs out.",
+  "winMessage": "Ship destroyed. Well done!",
+  "loseMessage": "Time's up! The ship survived.",
+  "timeLimitSeconds": 30.0,
+  "winConditions": [
+    "ship_destroyed"
+  ],
+  "loseConditions": [
+    "timer_elapsed"
+  ],
+  "aliens": [
+    {
+      "x": 0.06530955850926368,
+      "y": 0.06547619047619048,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.35538589438712626,
+      "y": 0.05704364322480701,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.42,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.54,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.7184054153869474,
+      "y": 0.057539667401994975,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.9194232270917819,
+      "y": 0.08928571428571429,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.18,
+      "y": 0.28,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.09329938039221533,
+      "y": 0.3893849054972331,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.42,
+      "y": 0.28,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.54,
+      "y": 0.28,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.9083969465648855,
+      "y": 0.38194442930675687,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.78,
+      "y": 0.28,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#38D66B",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.9,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.6454622302649888,
+      "y": 0.3769841194152832,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#BB66FF",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.24257844337676923,
+      "y": 0.21031745274861655,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#BB66FF",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    },
+    {
+      "x": 0.759966047058882,
+      "y": 0.14434523809523808,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "color": "#BB66FF",
+      "speed": 0.0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280.0
+      }
+    }
+  ],
+  "obstacles": [
+    {
+      "x": 0.25,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.5,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.75,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.07633587786259542,
+      "y": 0.8015872864496141,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.35368956743002544,
+      "y": 0.8000991912115187,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.6183206106870229,
+      "y": 0.8010912622724261,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.9151823320461594,
+      "y": 0.8020833333333334,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.3545377309085759,
+      "y": 0.38045633406866164,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    }
+  ],
+  "ship": {
+    "x": 0.5,
+    "y": 0.92,
+    "w": 0.16,
+    "h": 0.035,
+    "health": 3,
+    "color": "#5AA9E6",
+    "shooter": {
+      "power": 1,
+      "reloadSeconds": 0.6,
+      "bulletSpeed": 360.0
+    },
+    "ai": {
+      "moveChancePerSecond": 0.6,
+      "avoidChance": 0.5,
+      "moveSpeed": 220.0
+    }
+  },
+  "dance": {
+    "hSpeed": 40.0,
+    "vStep": 18.0
+  }
+}

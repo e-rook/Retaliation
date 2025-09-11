@@ -15,6 +15,12 @@ class ShooterSpec {
         reloadSeconds: (j['reloadSeconds'] ?? 1.0).toDouble(),
         bulletSpeed: (j['bulletSpeed'] ?? 280).toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'power': power,
+        'reloadSeconds': reloadSeconds,
+        'bulletSpeed': bulletSpeed,
+      };
 }
 
 class AlienSpec {
@@ -51,6 +57,18 @@ class AlienSpec {
         speed: (j['speed'] ?? 0).toDouble(),
         shooter: ShooterSpec.fromJson(j['shooter'] as Map<String, dynamic>? ?? const {}),
       );
+
+  Map<String, dynamic> toJson() => {
+        'x': x,
+        'y': y,
+        'w': w,
+        'h': h,
+        'health': health,
+        'asset': asset,
+        'color': color == null ? null : colorToHex(color!),
+        'speed': speed,
+        'shooter': shooter.toJson(),
+      }..removeWhere((k, v) => v == null);
 }
 
 class ObstacleSpec {
@@ -87,6 +105,18 @@ class ObstacleSpec {
         tileRows: (j['tileRows'] ?? 1) is num ? (j['tileRows'] as num).toInt() : 1,
         tileCols: (j['tileCols'] ?? 1) is num ? (j['tileCols'] as num).toInt() : 1,
       );
+
+  Map<String, dynamic> toJson() => {
+        'x': x,
+        'y': y,
+        'w': w,
+        'h': h,
+        'health': health,
+        'asset': asset,
+        'color': color == null ? null : colorToHex(color!),
+        'tileRows': tileRows,
+        'tileCols': tileCols,
+      }..removeWhere((k, v) => v == null);
 }
 
 class ShipAISpec {
@@ -101,6 +131,12 @@ class ShipAISpec {
         avoidChance: (j['avoidChance'] ?? 0.5).toDouble(),
         moveSpeed: (j['moveSpeed'] ?? 220).toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'moveChancePerSecond': moveChancePerSecond,
+        'avoidChance': avoidChance,
+        'moveSpeed': moveSpeed,
+      };
 }
 
 class ShipSpec {
@@ -137,6 +173,18 @@ class ShipSpec {
         shooter: ShooterSpec.fromJson(j['shooter'] as Map<String, dynamic>? ?? const {}),
         ai: ShipAISpec.fromJson(j['ai'] as Map<String, dynamic>? ?? const {}),
       );
+
+  Map<String, dynamic> toJson() => {
+        'x': x,
+        'y': y,
+        'w': w,
+        'h': h,
+        'health': health,
+        'asset': asset,
+        'color': color == null ? null : colorToHex(color!),
+        'shooter': shooter.toJson(),
+        'ai': ai.toJson(),
+      }..removeWhere((k, v) => v == null);
 }
 
 enum ConditionKind { shipDestroyed, aliensDestroyed, surviveTime, timerElapsed }
@@ -199,6 +247,21 @@ class LevelConfig {
         dance: DanceSpec.fromJson(Map<String, dynamic>.from(j['dance'] as Map? ?? {})),
       );
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'winMessage': winMessage,
+        'loseMessage': loseMessage,
+        'timeLimitSeconds': timeLimitSeconds,
+        'winConditions': winConditions.map((e) => _conditionToString(e)).toList(),
+        'loseConditions': loseConditions.map((e) => _conditionToString(e)).toList(),
+        'aliens': aliens.map((e) => e.toJson()).toList(),
+        'obstacles': obstacles.map((e) => e.toJson()).toList(),
+        'ship': ship.toJson(),
+        'dance': dance.toJson(),
+      }..removeWhere((k, v) => v == null);
+
   static Future<LevelConfig> loadFromAsset(String assetPath) async {
     logv('Level', 'Loading asset: $assetPath');
     final raw = await rootBundle.loadString(assetPath);
@@ -222,6 +285,11 @@ class DanceSpec {
         hSpeed: (j['hSpeed'] ?? 0).toDouble(),
         vStep: (j['vStep'] ?? 0).toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'hSpeed': hSpeed,
+        'vStep': vStep,
+      };
 }
 
 Color? _parseColor(dynamic v) {
@@ -240,4 +308,30 @@ String _stripComments(String input) {
   final noBlock = input.replaceAll(RegExp(r"/\*.*?\*/", dotAll: true), "");
   final noLine = noBlock.replaceAll(RegExp(r"^\s*//.*", multiLine: true), "");
   return noLine;
+}
+
+String colorToHex(Color c, {bool includeAlpha = false}) {
+  // Prefer channel accessors to avoid deprecation warnings
+  final a = includeAlpha ? ((c.a * 255.0).round() & 0xff) : 0xff;
+  final r = (c.r * 255.0).round() & 0xff;
+  final g = (c.g * 255.0).round() & 0xff;
+  final b = (c.b * 255.0).round() & 0xff;
+  final v = (a << 24) | (r << 16) | (g << 8) | b;
+  final full = v.toRadixString(16).padLeft(8, '0').toUpperCase();
+  return '#${includeAlpha ? full : full.substring(2)}';
+}
+
+Color? parseColorHex(String? s) => _parseColor(s);
+
+String _conditionToString(ConditionKind k) {
+  switch (k) {
+    case ConditionKind.shipDestroyed:
+      return 'ship_destroyed';
+    case ConditionKind.aliensDestroyed:
+      return 'aliens_destroyed';
+    case ConditionKind.surviveTime:
+      return 'survive_time';
+    case ConditionKind.timerElapsed:
+      return 'timer_elapsed';
+  }
 }

@@ -3,7 +3,10 @@ import 'package:flutter/scheduler.dart';
 import 'game/objects.dart';
 import 'game/projectile.dart';
 import 'game/level.dart';
+import 'game/level_validator.dart';
 import 'util/log.dart';
+import 'designer/designer_page.dart';
+import 'designer/level_select_page.dart';
 import 'dart:math';
 
 void main() {
@@ -74,9 +77,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     // Load default level
     LevelConfig.loadFromAsset('assets/levels/level1.json').then((lvl) {
       if (!mounted) return;
-      setState(() {
-        _level = lvl;
-      });
+      final validation = validateLevel(lvl);
+      if (!validation.isValid) {
+        setState(() {
+          _loadError = 'Level validation failed:\n- ${validation.errors.join('\n- ')}';
+        });
+      } else {
+        setState(() {
+          _level = lvl;
+        });
+      }
       logv('Game', 'Level ready: ${lvl.id}');
     }).catchError((e, st) {
       // Surface load errors to the UI to avoid a confusing blank screen
@@ -208,6 +218,74 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         logv('State', 'aliens=${_aliens.length}, obstacles=${_obstacles.length}, projectiles=${_projectiles.length}');
       }
       setState(() {});
+    }
+  }
+
+  Future<void> _openDesigner() async {
+    final lvl = _level;
+    if (lvl == null) return;
+    final updated = await Navigator.of(context).push<LevelConfig>(
+      MaterialPageRoute(builder: (_) => DesignerPage(initial: lvl)),
+    );
+    if (updated != null) {
+      setState(() {
+        _level = updated;
+        _won = false;
+        _lost = false;
+        _aliens.clear();
+        _obstacles.clear();
+        _projectiles.clear();
+        _player = null;
+        _lastLayoutLevelId = null; // force layout rebuild with new level
+      });
+    }
+  }
+
+  Future<void> _openLevelPicker() async {
+    final selected = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const LevelSelectPage()),
+    );
+    if (selected != null) {
+      try {
+        final lvl = await LevelConfig.loadFromAsset(selected);
+        final validation = validateLevel(lvl);
+        if (!validation.isValid) {
+          if (!mounted) return;
+          // Show validation issues
+          // ignore: use_build_context_synchronously
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Invalid Level'),
+              content: SingleChildScrollView(child: Text(validation.errors.join('\n'))),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+            ),
+          );
+          return;
+        }
+        if (!mounted) return;
+        setState(() {
+          _level = lvl;
+          _won = false;
+          _lost = false;
+          _aliens.clear();
+          _obstacles.clear();
+          _projectiles.clear();
+          _player = null;
+          _lastLayoutLevelId = null;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        // ignore: use_build_context_synchronously
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Load Error'),
+            content: Text(e.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+      }
     }
   }
 
@@ -491,6 +569,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         child: LayoutBuilder(
           builder: (context, constraints) {
             _layout(Size(constraints.maxWidth, constraints.maxHeight));
+            // Determine overlay message
+            Widget? overlay;
+            if (_loadError != null) {
+              overlay = Center(child: _MessageCard(text: _loadError!));
+            } else if (_level == null) {
+              overlay = const Center(child: _MessageCard(text: 'Loading level...'));
+            } else if (_won) {
+              overlay = Center(child: _MessageCard(text: _level!.winMessage));
+            } else if (_lost) {
+              overlay = Center(child: _MessageCard(text: _level!.loseMessage));
+            }
+
             return Stack(
               fit: StackFit.expand,
               children: [
@@ -512,24 +602,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   Positioned(
                     left: 10,
                     top: 8,
-                    child: _TimerBadge(text: _formatTimer()),
+                    child: GestureDetector(
+                      onLongPress: _openDesigner,
+                      child: _TimerBadge(text: _formatTimer()),
+                    ),
                   ),
-                if (_loadError != null)
-                  Center(
-                    child: _MessageCard(text: _loadError!),
-                  )
-                else if (_level == null)
-                  const Center(
-                    child: _MessageCard(text: 'Loading level...'),
-                  )
-                else if (_won)
-                  Center(
-                    child: _MessageCard(text: _level!.winMessage),
-                  )
-                else if (_lost)
-                  Center(
-                    child: _MessageCard(text: _level!.loseMessage),
-                  ),
+                if (overlay != null) overlay,
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: _LevelsButton(onTap: _openLevelPicker),
+                ),
               ],
             );
           },
@@ -636,6 +719,38 @@ class _TimerBadge extends StatelessWidget {
           fontSize: 16,
           color: Colors.white,
           fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+}
+
+class _LevelsButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _LevelsButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF000000).withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.folder_open, size: 16, color: Colors.white),
+              SizedBox(width: 6),
+              Text('Levels', style: TextStyle(color: Colors.white, fontSize: 14)),
+            ],
+          ),
         ),
       ),
     );
