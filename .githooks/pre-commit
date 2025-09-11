@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running flutter analyze before commit..."
+
+if ! command -v flutter >/dev/null 2>&1; then
+  echo "Error: flutter not found in PATH." >&2
+  echo "Install Flutter or open a shell where 'flutter' is available." >&2
+  exit 1
+fi
+
+# Run static analysis; fail the commit on issues
+flutter analyze
+
+echo "flutter analyze passed. Proceeding with commit."
