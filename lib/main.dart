@@ -8,6 +8,7 @@ import 'game/level_list.dart';
 import 'util/log.dart';
 import 'designer/designer_page.dart';
 import 'designer/level_select_page.dart';
+import 'menu/menu_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
@@ -24,14 +25,15 @@ class GameApp extends StatelessWidget {
     return MaterialApp(
       title: 'Retaliation',
       theme: ThemeData.dark(useMaterial3: true),
-      home: const GamePage(),
+      home: const MenuPage(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
 class GamePage extends StatefulWidget {
-  const GamePage({super.key});
+  final String? initialLevelPath;
+  const GamePage({super.key, this.initialLevelPath});
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -79,7 +81,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     super.initState();
     logv('Game', 'initState');
     _ticker = createTicker(_onTick)..start();
-    _bootstrap();
+    _bootstrap(widget.initialLevelPath);
   }
 
   @override
@@ -205,13 +207,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _bootstrap([String? initialPath]) async {
     try {
       final order = await LevelList.loadFromAsset('assets/levels/levels.json');
       final prefs = await SharedPreferences.getInstance();
       final unlocked = (prefs.getInt('unlocked_count') ?? 1).clamp(1, order.levels.length);
       _order = order;
-      _currentLevelPath = order.levels.isNotEmpty ? order.levels[0] : 'assets/levels/level1.json';
+      _currentLevelPath = initialPath ?? (order.levels.isNotEmpty ? order.levels[0] : 'assets/levels/level1.json');
       final lvl = await LevelConfig.loadFromAsset(_currentLevelPath!);
       final validation = validateLevel(lvl);
       if (!mounted) return;
