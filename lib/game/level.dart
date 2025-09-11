@@ -61,6 +61,8 @@ class ObstacleSpec {
   final int health;
   final String? asset;
   final Color? color;
+  final int tileRows;
+  final int tileCols;
 
   ObstacleSpec({
     required this.x,
@@ -70,6 +72,8 @@ class ObstacleSpec {
     required this.health,
     required this.asset,
     required this.color,
+    this.tileRows = 1,
+    this.tileCols = 1,
   });
 
   factory ObstacleSpec.fromJson(Map<String, dynamic> j) => ObstacleSpec(
@@ -80,6 +84,8 @@ class ObstacleSpec {
         health: (j['health'] ?? 5) as int,
         asset: j['asset'] as String?,
         color: _parseColor(j['color']),
+        tileRows: (j['tileRows'] ?? 1) is num ? (j['tileRows'] as num).toInt() : 1,
+        tileCols: (j['tileCols'] ?? 1) is num ? (j['tileCols'] as num).toInt() : 1,
       );
 }
 

@@ -44,6 +44,7 @@
 - `health`: integer
 - `asset`: optional string
 - `color`: optional hex color
+ - `tileRows`, `tileCols`: integers (default 1). When > 1, the obstacle is subdivided into a grid of `tileRows x tileCols` small tiles. Each tile is an independent, destructible obstacle with the same `health` and `color`.
 
 - ShipSpec
 - `x`, `y`, `w`, `h`: normalized (see above)
@@ -73,7 +74,8 @@
 - The ship is AI-controlled: moves horizontally, fires automatically with jitter around its reload, and may dodge.
 - Collisions: projectiles subtract `power` from target `health`. Objects vanish when `health <= 0`.
 - Timed levels: a countdown badge appears in the top-left when `timeLimitSeconds` is set.
- - Dance behavior: the alien formation moves horizontally; when any alien would cross the screen edge, the whole formation steps down by `vStep` and reverses direction on the next frame.
+- Dance behavior: the alien formation moves horizontally; when any alien would cross the screen edge, the whole formation steps down by `vStep` and reverses direction on the next frame.
+ - Partially destructible shields: define `tileRows`/`tileCols` to get per-tile damage and removal. A small gap is rendered between tiles to make destruction visible.
 
 **Example**
 

@@ -23,9 +23,9 @@
     {"x": 0.78, "y": 0.28, "w": 0.09, "h": 0.05, "health": 1, "color": "#38D66B", "speed": 0, "shooter": {"power": 1, "reloadSeconds": 0.9, "bulletSpeed": 280}}
   ],
   "obstacles": [
-    {"x": 0.25, "y": 0.72, "w": 0.18, "h": 0.04, "health": 5, "color": "#9AA0A6"},
-    {"x": 0.50, "y": 0.72, "w": 0.18, "h": 0.04, "health": 5, "color": "#9AA0A6"},
-    {"x": 0.75, "y": 0.72, "w": 0.18, "h": 0.04, "health": 5, "color": "#9AA0A6"}
+    {"x": 0.25, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6},
+    {"x": 0.50, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6},
+    {"x": 0.75, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6}
   ],
   "ship": {
     "x": 0.5, "y": 0.92, "w": 0.16, "h": 0.035, "health": 3, "color": "#5AA9E6",

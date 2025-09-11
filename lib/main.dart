@@ -390,15 +390,47 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       logv('Layout', 'Ship ready. moveSpeed=$_shipMoveSpeed reload=${_player?.reloadSeconds}');
 
       // Obstacles from spec
-      _obstacles
-        ..clear()
-        ..addAll(lvl.obstacles.map((o) => Obstacle(
-              center: Offset(o.x * size.width, o.y * size.height),
-              size: Size(o.w * size.width, o.h * size.height),
-              health: o.health,
-              color: o.color,
-              assetName: o.asset,
-            )));
+      _obstacles.clear();
+      for (final o in lvl.obstacles) {
+        final totalW = o.w * size.width;
+        final totalH = o.h * size.height;
+        final cx = o.x * size.width;
+        final cy = o.y * size.height;
+        final cols = o.tileCols <= 0 ? 1 : o.tileCols;
+        final rows = o.tileRows <= 0 ? 1 : o.tileRows;
+
+        if (rows == 1 && cols == 1) {
+          _obstacles.add(Obstacle(
+            center: Offset(cx, cy),
+            size: Size(totalW, totalH),
+            health: o.health,
+            color: o.color,
+            assetName: o.asset,
+          ));
+        } else {
+          final tileW = totalW / cols;
+          final tileH = totalH / rows;
+          final left = cx - totalW / 2;
+          final top = cy - totalH / 2;
+          // Small visual gap so damage is visible
+          const gap = 2.0; // logical px
+          for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+              final tx = left + c * tileW + tileW / 2;
+              final ty = top + r * tileH + tileH / 2;
+              final w = (tileW - gap).clamp(1.0, tileW);
+              final h = (tileH - gap).clamp(1.0, tileH);
+              _obstacles.add(Obstacle(
+                center: Offset(tx, ty),
+                size: Size(w, h),
+                health: o.health,
+                color: o.color,
+                assetName: o.asset,
+              ));
+            }
+          }
+        }
+      }
       logv('Layout', 'Spawned obstacles: ${_obstacles.length}');
       // Dance parameters
       _danceHSpeed = lvl.dance.hSpeed;
