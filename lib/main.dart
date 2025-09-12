@@ -26,10 +26,23 @@ class GameApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Screenshot automation defines
+    const String startLevel = String.fromEnvironment('START_LEVEL', defaultValue: '');
+    const String startScreen = String.fromEnvironment('START_SCREEN', defaultValue: ''); // '', 'level_select'
+
+    Widget home;
+    if (startLevel.isNotEmpty) {
+      home = GamePage(initialLevelPath: startLevel);
+    } else if (startScreen == 'level_select') {
+      home = const MenuPage(openLevelSelectOnStart: true);
+    } else {
+      home = const MenuPage();
+    }
+
     return MaterialApp(
       title: 'Retaliation',
       theme: ThemeData.dark(useMaterial3: true),
-      home: const MenuPage(),
+      home: home,
       debugShowCheckedModeBanner: false,
     );
   }
@@ -73,6 +86,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _ticker = createTicker(_onTick)..start();
     SpriteStore.instance.addListener(_onSpritesChanged);
     _bootstrap(widget.initialLevelPath);
+
+    // Screenshot automation: force overlay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      const String forceOverlay = String.fromEnvironment('FORCE_OVERLAY', defaultValue: ''); // '', 'win', 'lose'
+      if (forceOverlay == 'win' || forceOverlay == 'lose') {
+        setState(() {
+          _gc.won = forceOverlay == 'win';
+          _gc.lost = forceOverlay == 'lose';
+        });
+      }
+    });
   }
 
   @override
