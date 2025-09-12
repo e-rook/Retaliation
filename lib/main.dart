@@ -9,6 +9,9 @@ import 'util/log.dart';
 import 'designer/designer_page.dart';
 import 'designer/level_select_page.dart';
 import 'menu/menu_page.dart';
+import 'gfx/sprites.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
@@ -81,13 +84,19 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     super.initState();
     logv('Game', 'initState');
     _ticker = createTicker(_onTick)..start();
+    SpriteStore.instance.addListener(_onSpritesChanged);
     _bootstrap(widget.initialLevelPath);
   }
 
   @override
   void dispose() {
+    SpriteStore.instance.removeListener(_onSpritesChanged);
     _ticker.dispose();
     super.dispose();
+  }
+
+  void _onSpritesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onTick(Duration elapsed) {
@@ -225,6 +234,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         setState(() {
           _level = lvl;
         });
+        // Debug: verify that sprite assets are present in the bundle
+        _debugCheckSpriteAssets(lvl);
       }
       logv('Game', 'Level ready: ${lvl.id}; unlocked=$unlocked');
     } catch (e) {
@@ -232,6 +243,25 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       setState(() {
         _loadError = 'Failed to load levels: $e';
       });
+    }
+  }
+
+  Future<void> _debugCheckSpriteAssets(LevelConfig lvl) async {
+    try {
+      final manifestStr = await rootBundle.loadString('AssetManifest.json');
+      final Map<String, dynamic> manifest = json.decode(manifestStr);
+      final keys = manifest.keys.toSet();
+      final paths = <String?>[
+        lvl.ship.asset,
+        for (final a in lvl.aliens) a.asset,
+        for (final o in lvl.obstacles) o.asset,
+      ].whereType<String>().toSet();
+      for (final p in paths) {
+        final present = keys.contains(p);
+        logv('Assets', '${present ? 'FOUND' : 'MISSING'} in bundle: $p');
+      }
+    } catch (e) {
+      logv('Assets', 'Failed to read AssetManifest.json: $e');
     }
   }
 
@@ -479,6 +509,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               ))
           .toList();
       logv('Layout', 'Spawned aliens: ${_aliens.length}');
+      // Preload alien sprites
+      for (final a in _aliens) {
+        final path = a.assetName;
+        if (path != null) {
+          // ignore: discarded_futures
+          SpriteStore.instance.ensure(path);
+        }
+      }
 
       // Ship from spec
       final s = lvl.ship;
@@ -497,6 +535,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _shipBulletSpeed = s.shooter.bulletSpeed;
       _nextPlayerShotAt = _elapsedSeconds + 0.5 + _rng.nextDouble();
       logv('Layout', 'Ship ready. moveSpeed=$_shipMoveSpeed reload=${_player?.reloadSeconds}');
+      if (_player?.assetName != null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(_player!.assetName!);
+      }
 
       // Obstacles from spec
       _obstacles.clear();
@@ -541,6 +583,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         }
       }
       logv('Layout', 'Spawned obstacles: ${_obstacles.length}');
+      for (final o in _obstacles) {
+        final path = o.assetName;
+        if (path != null) {
+          // ignore: discarded_futures
+          SpriteStore.instance.ensure(path);
+        }
+      }
       // Dance parameters
       _danceHSpeed = lvl.dance.hSpeed;
       _danceVStep = lvl.dance.vStep;
@@ -676,21 +725,42 @@ class _GamePainter extends CustomPainter {
     final bg = Paint()..color = const Color(0xFF0B0F14);
     canvas.drawRect(Offset.zero & size, bg);
 
-    // Aliens
+    // Aliens (sprite if available; if loading, skip; fallback rect if missing/failed)
     for (final alien in aliens) {
-      final baseColor = alien.color ?? const Color(0xFF38D66B);
-      final paint = Paint()
-        ..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-      canvas.drawRect(alien.rect, paint);
+      final asset = alien.assetName;
+      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
+      if (asset != null && img == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(asset);
+      }
+      if (img != null) {
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        canvas.drawImageRect(img, src, alien.rect, Paint());
+      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
+        final baseColor = alien.color ?? const Color(0xFF38D66B);
+        final paint = Paint()..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
+        canvas.drawRect(alien.rect, paint);
+      }
     }
 
     // Ship
     final shipPaint = Paint();
     final s = player;
     if (s != null) {
-      final baseColor = s.color ?? const Color(0xFF5AA9E6);
-      shipPaint.color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-      canvas.drawRect(s.rect, shipPaint);
+      final asset = s.assetName;
+      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
+      if (asset != null && img == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(asset);
+      }
+      if (img != null) {
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        canvas.drawImageRect(img, src, s.rect, Paint());
+      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
+        final baseColor = s.color ?? const Color(0xFF5AA9E6);
+        shipPaint.color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
+        canvas.drawRect(s.rect, shipPaint);
+      }
     }
 
     // Projectiles
@@ -699,12 +769,22 @@ class _GamePainter extends CustomPainter {
       canvas.drawRect(p.rect, projPaint);
     }
 
-    // Obstacles
+    // Obstacles (sprite if available; if loading, skip; fallback rect if missing/failed)
     for (final o in obstacles) {
-      final baseColor = o.color ?? const Color(0xFF9AA0A6);
-      final obPaint = Paint()
-        ..color = o.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-      canvas.drawRect(o.rect, obPaint);
+      final asset = o.assetName;
+      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
+      if (asset != null && img == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(asset);
+      }
+      if (img != null) {
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        canvas.drawImageRect(img, src, o.rect, Paint());
+      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
+        final baseColor = o.color ?? const Color(0xFF9AA0A6);
+        final obPaint = Paint()..color = o.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
+        canvas.drawRect(o.rect, obPaint);
+      }
     }
   }
 

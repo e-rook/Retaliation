@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 import '../game/level.dart';
+import '../gfx/sprites.dart';
+import 'dart:ui' as ui;
 
 enum _SelType { alien, obstacle, ship }
 
@@ -47,6 +49,8 @@ class _DesignerPageState extends State<DesignerPage> {
     _level = widget.initial;
     _initPresets();
     _shipColor = TextEditingController(text: colorToHex(_level.ship.color ?? const Color(0xFF5AA9E6)));
+    // Repaint when sprites load
+    SpriteStore.instance.addListener(_onSpritesChanged);
   }
 
   void _initPresets() {
@@ -65,7 +69,7 @@ class _DesignerPageState extends State<DesignerPage> {
         w: 0.09,
         h: 0.05,
         health: 1,
-        asset: null,
+        asset: 'assets/sprites/simple_space/aliens/alien${i + 1}.png',
         color: defaults[i],
         speed: 0,
         shooter: const ShooterSpec(power: 1, reloadSeconds: 0.8, bulletSpeed: 280),
@@ -76,7 +80,12 @@ class _DesignerPageState extends State<DesignerPage> {
   @override
   void dispose() {
     _shipColor.dispose();
+    SpriteStore.instance.removeListener(_onSpritesChanged);
     super.dispose();
+  }
+
+  void _onSpritesChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -574,26 +583,59 @@ class _DesignerPainter extends CustomPainter {
     final bg = Paint()..color = const Color(0xFF0B0F14);
     canvas.drawRect(Offset.zero & size, bg);
 
-    // draw aliens
+    // draw aliens (try sprite, otherwise colored rect)
     for (final a in level.aliens) {
       final r = Rect.fromCenter(center: Offset(a.x * size.width, a.y * size.height), width: a.w * size.width, height: a.h * size.height);
-      final paint = Paint()..color = a.color ?? const Color(0xFF38D66B);
-      canvas.drawRect(r, paint);
+      final path = a.asset;
+      final ui.Image? img = (path != null) ? SpriteStore.instance.imageFor(path) : null;
+      if (path != null && img == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(path);
+      }
+      if (img != null) {
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        canvas.drawImageRect(img, src, r, Paint());
+      } else {
+        final paint = Paint()..color = a.color ?? const Color(0xFF38D66B);
+        canvas.drawRect(r, paint);
+      }
     }
-    // obstacles (outline the full rect)
+    // obstacles (sprite if provided, otherwise outline)
     for (final o in level.obstacles) {
       final r = Rect.fromCenter(center: Offset(o.x * size.width, o.y * size.height), width: o.w * size.width, height: o.h * size.height);
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = (o.color ?? const Color(0xFF9AA0A6)).withValues(alpha: 0.9);
-      canvas.drawRect(r, paint);
+      final path = o.asset;
+      final ui.Image? img = (path != null) ? SpriteStore.instance.imageFor(path) : null;
+      if (path != null && img == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(path);
+      }
+      if (img != null) {
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        canvas.drawImageRect(img, src, r, Paint());
+      } else {
+        final paint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = (o.color ?? const Color(0xFF9AA0A6)).withValues(alpha: 0.9);
+        canvas.drawRect(r, paint);
+      }
     }
     // ship
     final s = level.ship;
     final rs = Rect.fromCenter(center: Offset(s.x * size.width, s.y * size.height), width: s.w * size.width, height: s.h * size.height);
-    final sp = Paint()..color = s.color ?? const Color(0xFF5AA9E6);
-    canvas.drawRect(rs, sp);
+    final spath = s.asset;
+    final ui.Image? simg = (spath != null) ? SpriteStore.instance.imageFor(spath) : null;
+    if (spath != null && simg == null) {
+      // ignore: discarded_futures
+      SpriteStore.instance.ensure(spath);
+    }
+    if (simg != null) {
+      final src = Rect.fromLTWH(0, 0, simg.width.toDouble(), simg.height.toDouble());
+      canvas.drawImageRect(simg, src, rs, Paint());
+    } else {
+      final sp = Paint()..color = s.color ?? const Color(0xFF5AA9E6);
+      canvas.drawRect(rs, sp);
+    }
 
     // selection highlight
     final hi = Paint()
