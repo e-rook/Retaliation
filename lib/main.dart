@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'game/objects.dart';
+import 'game/entities/entities.dart';
+import 'game/force_field.dart';
 import 'game/projectile.dart';
 import 'game/level.dart';
 import 'game/level_validator.dart';
@@ -51,7 +52,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   PlayerShip? _player;
   final List<Obstacle> _obstacles = [];
   final List<Projectile> _projectiles = [];
-  ForceFieldState? _forceField; // optional
+  ForceField? _forceField; // optional
   double _elapsedSeconds = 0;
   final Random _rng = Random();
   double? _nextPlayerShotAt;
@@ -309,7 +310,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           _obstacles.clear();
           _projectiles.clear();
           _player = null;
+          _forceField = null;
           _lastLayoutLevelId = null;
+          _elapsedSeconds = 0;
+          _shipTargetX = null;
+          _nextPlayerShotAt = null;
+          _lastTick = Duration.zero;
           _currentLevelPath = selected;
         });
       } catch (e) {
@@ -589,7 +595,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _alienDir = 1;
       // ForceField from spec (optional)
       if (lvl.forceField != null && _player != null) {
-        _forceField = ForceFieldState(
+        _forceField = ForceField(
           transparent: lvl.forceField!.transparent,
           health: lvl.forceField!.health,
           color: lvl.forceField!.color ?? const Color(0xFF66D9FF),
@@ -698,11 +704,22 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                     top: 8,
                     child: _TimerBadge(text: _formatTimer()),
                   ),
+                
                 if (overlay != null) overlay,
                 Positioned(
                   right: 8,
                   top: 8,
                   child: _LevelsButton(onTap: _openLevelPicker),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 36,
+                  child: _MenuButton(onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const MenuPage()),
+                      (route) => false,
+                    );
+                  }),
                 ),
               ],
             );
@@ -719,7 +736,7 @@ class _GamePainter extends CustomPainter {
   final List<Obstacle> obstacles;
   final List<Projectile> projectiles;
   final double now;
-  final ForceFieldState? forceField;
+  final ForceField? forceField;
 
   _GamePainter({required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
 
@@ -829,90 +846,6 @@ class _GamePainter extends CustomPainter {
   }
 }
 
-class ForceFieldState {
-  bool transparent;
-  int health;
-  final Color color;
-  double thickness;
-  Path path = Path();
-  List<Offset> _polyline = const [];
-  double _hitStart = -1;
-  bool alive = true;
-  final double _hitThickness = 20.0; // collision thickness independent of draw thickness
-
-  ForceFieldState({required this.transparent, required this.health, required this.color, this.thickness = 3});
-
-  void layout(Size size, Rect shipRect) {
-    // Base y slightly above ship
-    final baseY = (shipRect.top - size.height * 0.035).clamp(0.0, size.height);
-    final arcH = size.height * 0.05;
-    final c1 = Offset(size.width / 3, baseY - arcH);
-    final c2 = Offset(2 * size.width / 3, baseY - arcH);
-    final p0 = Offset(0, baseY);
-    final p3 = Offset(size.width, baseY);
-    final p = Path()..moveTo(p0.dx, p0.dy)..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p3.dx, p3.dy);
-    path = p;
-    // Sample polyline for collision
-    const steps = 48;
-    final pts = <Offset>[];
-    for (int i = 0; i <= steps; i++) {
-      final t = i / steps;
-      pts.add(_cubicPoint(p0, c1, c2, p3, t));
-    }
-    _polyline = pts;
-  }
-
-  bool hitTest(Projectile proj) {
-    if (!alive) return false;
-    // Distance from projectile center to polyline
-    final pt = proj.center;
-    double minD2 = double.infinity;
-    for (int i = 0; i + 1 < _polyline.length; i++) {
-      final a = _polyline[i];
-      final b = _polyline[i + 1];
-      final d2 = _pointToSegmentDist2(pt, a, b);
-      if (d2 < minD2) minD2 = d2;
-    }
-    final rad = (_hitThickness / 2) + (proj.size.shortestSide / 2);
-    return minD2 <= rad * rad;
-  }
-
-  void onHit(double now, int damage) {
-    _hitStart = now;
-    health -= damage;
-    if (health <= 0) alive = false;
-  }
-
-  bool get isGlowing => _hitStart > 0;
-  double glowWidth(double now) {
-    if (_hitStart < 0) return 0;
-    final t = now - _hitStart;
-    if (t < 0) return 0;
-    if (t < 0.05) return 0; // lineWidth=1, glow=0
-    if (t < 0.15) return 3; // glowWidth=3
-    if (t < 0.25) return 1; // glowWidth=1
-    // end of sequence
-    _hitStart = -1;
-    return 0;
-  }
-
-  static Offset _cubicPoint(Offset p0, Offset c1, Offset c2, Offset p3, double t) {
-    final mt = 1 - t;
-    final x = mt * mt * mt * p0.dx + 3 * mt * mt * t * c1.dx + 3 * mt * t * t * c2.dx + t * t * t * p3.dx;
-    final y = mt * mt * mt * p0.dy + 3 * mt * mt * t * c1.dy + 3 * mt * t * t * c2.dy + t * t * t * p3.dy;
-    return Offset(x, y);
-  }
-
-  static double _pointToSegmentDist2(Offset p, Offset a, Offset b) {
-    final ab = b - a;
-    final t = ((p - a).dx * ab.dx + (p - a).dy * ab.dy) / (ab.dx * ab.dx + ab.dy * ab.dy + 1e-6);
-    final tt = t.clamp(0.0, 1.0);
-    final proj = Offset(a.dx + ab.dx * tt, a.dy + ab.dy * tt);
-    final dx = p.dx - proj.dx;
-    final dy = p.dy - proj.dy;
-    return dx * dx + dy * dy;
-  }
-}
 
 class _MessageCard extends StatelessWidget {
   final String text;
@@ -985,6 +918,38 @@ class _LevelsButton extends StatelessWidget {
               Icon(Icons.folder_open, size: 16, color: Colors.white),
               SizedBox(width: 6),
               Text('Levels', style: TextStyle(color: Colors.white, fontSize: 14)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _MenuButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _MenuButton({required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF000000).withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.home, size: 16, color: Colors.white),
+              SizedBox(width: 6),
+              Text('Menu', style: TextStyle(color: Colors.white, fontSize: 14)),
             ],
           ),
         ),

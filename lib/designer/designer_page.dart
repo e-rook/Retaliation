@@ -842,4 +842,3 @@ extension _ShipSpecCopy on ShipSpec {
     );
   }
 }
-
