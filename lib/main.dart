@@ -6,7 +6,6 @@ import 'game/level.dart';
 import 'game/level_validator.dart';
 import 'game/level_list.dart';
 import 'util/log.dart';
-import 'designer/designer_page.dart';
 import 'designer/level_select_page.dart';
 import 'menu/menu_page.dart';
 import 'gfx/sprites.dart';
@@ -278,26 +277,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _openDesigner() async {
-    final lvl = _level;
-    if (lvl == null) return;
-    final updated = await Navigator.of(context).push<LevelConfig>(
-      MaterialPageRoute(builder: (_) => DesignerPage(initial: lvl)),
-    );
-    if (updated != null) {
-      setState(() {
-        _level = updated;
-        _won = false;
-        _lost = false;
-        _aliens.clear();
-        _obstacles.clear();
-        _projectiles.clear();
-        _player = null;
-        _lastLayoutLevelId = null; // force layout rebuild with new level
-      });
-    }
-  }
-
+  
   Future<void> _openLevelPicker() async {
     final selected = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const LevelSelectPage()),
@@ -716,10 +696,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   Positioned(
                     left: 10,
                     top: 8,
-                    child: GestureDetector(
-                      onLongPress: _openDesigner,
-                      child: _TimerBadge(text: _formatTimer()),
-                    ),
+                    child: _TimerBadge(text: _formatTimer()),
                   ),
                 if (overlay != null) overlay,
                 Positioned(
@@ -886,7 +863,6 @@ class ForceFieldState {
   }
 
   bool hitTest(Projectile proj) {
-    logv("About to hit test on Force Field", "");
     if (!alive) return false;
     // Distance from projectile center to polyline
     final pt = proj.center;

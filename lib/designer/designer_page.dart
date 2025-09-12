@@ -750,6 +750,25 @@ class _DesignerPainter extends CustomPainter {
       canvas.drawRect(rs, sp);
     }
 
+    // ForceField (designer preview) — draw fully visible arc above ship
+    if (level.forceField != null) {
+      final ff = level.forceField!;
+      final baseY = (rs.top - size.height * 0.05).clamp(0.0, size.height);
+      final arcH = size.height * 0.08;
+      final p0 = Offset(0, baseY);
+      final p3 = Offset(size.width, baseY);
+      final c1 = Offset(size.width / 3, baseY - arcH);
+      final c2 = Offset(2 * size.width / 3, baseY - arcH);
+      final path = Path()
+        ..moveTo(p0.dx, p0.dy)
+        ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p3.dx, p3.dy);
+      final stroke = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = (ff.color ?? const Color(0xFF66D9FF)).withValues(alpha: 0.75);
+      canvas.drawPath(path, stroke);
+    }
+
     // selection highlight
     final hi = Paint()
       ..style = PaintingStyle.stroke
@@ -823,5 +842,4 @@ extension _ShipSpecCopy on ShipSpec {
     );
   }
 }
-
 

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../designer/level_select_page.dart';
+import '../designer/designer_page.dart';
 import '../main.dart' show GamePage; // reuse GamePage
 import 'package:shared_preferences/shared_preferences.dart';
 import '../game/level_list.dart';
+import '../game/level.dart';
 
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
@@ -113,8 +115,39 @@ class _SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: const Center(
-        child: Text('Settings coming soon.'),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.design_services),
+              label: const Text('Open Level Designer'),
+              onPressed: () async {
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  final order = await LevelList.loadFromAsset('assets/levels/levels.json');
+                  final unlocked = (prefs.getInt('unlocked_count') ?? 1).clamp(1, order.levels.length);
+                  final path = order.levels.isNotEmpty ? order.levels[unlocked - 1] : 'assets/levels/level1.json';
+                  final lvl = await LevelConfig.loadFromAsset(path);
+                  // ignore: use_build_context_synchronously
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => DesignerPage(initial: lvl)),
+                  );
+                } catch (e) {
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to open designer: $e')),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 24),
+            const Text('Other settings coming soon.'),
+          ],
+        ),
       ),
     );
   }
