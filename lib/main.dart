@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'game/entities/entities.dart';
-import 'game/force_field.dart';
 import 'game/game_controller.dart';
-import 'game/projectile.dart';
 import 'game/level.dart';
 import 'game/level_validator.dart';
 import 'game/level_list.dart';
 import 'util/log.dart';
-import 'designer/level_select_page.dart';
 import 'menu/menu_page.dart';
 import 'gfx/sprites.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
+import 'ui/game_canvas.dart';
+import 'ui/game_scaffold.dart';
+import 'ui/game_overlays.dart';
+import 'ui/game_provider.dart';
 
 void main() {
   logv('App', 'main() starting');
@@ -167,49 +167,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   
-  Future<void> _openLevelPicker() async {
-    final selected = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const LevelSelectPage()),
-    );
-    if (selected != null) {
-      try {
-        final lvl = await LevelConfig.loadFromAsset(selected);
-        final validation = validateLevel(lvl);
-        if (!validation.isValid) {
-          if (!mounted) return;
-          // Show validation issues
-          // ignore: use_build_context_synchronously
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Invalid Level'),
-              content: SingleChildScrollView(child: Text(validation.errors.join('\n'))),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-            ),
-          );
-          return;
-        }
-        if (!mounted) return;
-        setState(() {
-          _level = lvl;
-          _lastLayoutLevelId = null;
-          _lastTick = Duration.zero;
-          _currentLevelPath = selected;
-        });
-      } catch (e) {
-        if (!mounted) return;
-        // ignore: use_build_context_synchronously
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Load Error'),
-            content: Text(e.toString()),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-          ),
-        );
-      }
-    }
-  }
 
 
   void _layout(Size size) {
@@ -227,6 +184,102 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _lastLayoutLevelId = currentLevelId;
     // Do not call setState here; we're in the build/layout phase via LayoutBuilder.
     // The new geometry is immediately used in this build pass.
+  }
+
+  Future<void> _retryLevel() async {
+    final path = _currentLevelPath;
+    if (path == null) return;
+    try {
+      final lvl = await LevelConfig.loadFromAsset(path);
+      final validation = validateLevel(lvl);
+      if (!validation.isValid) {
+        if (!mounted) return;
+        // ignore: use_build_context_synchronously
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Invalid Level'),
+            content: SingleChildScrollView(child: Text(validation.errors.join('\n'))),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _level = lvl;
+        _lastLayoutLevelId = null;
+        _lastTick = Duration.zero;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Load Error'),
+          content: Text(e.toString()),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+    }
+  }
+
+  Future<void> _goToNextLevel() async {
+    try {
+      final order = await LevelList.loadFromAsset('assets/levels/levels.json');
+      final idx = order.levels.indexOf(_currentLevelPath ?? '');
+      final nextIdx = (idx >= 0 && idx + 1 < order.levels.length) ? idx + 1 : -1;
+      if (nextIdx < 0) {
+        // No next level; go to menu.
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MenuPage()),
+          (route) => false,
+        );
+        return;
+      }
+      final nextPath = order.levels[nextIdx];
+      final lvl = await LevelConfig.loadFromAsset(nextPath);
+      final validation = validateLevel(lvl);
+      if (!validation.isValid) {
+        if (!mounted) return;
+        // ignore: use_build_context_synchronously
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Invalid Level'),
+            content: SingleChildScrollView(child: Text(validation.errors.join('\n'))),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+        return;
+      }
+      // Unlock up to next level
+      final prefs = await SharedPreferences.getInstance();
+      final unlocked = (prefs.getInt('unlocked_count') ?? 1);
+      if (unlocked < nextIdx + 1) {
+        await prefs.setInt('unlocked_count', nextIdx + 1);
+      }
+      if (!mounted) return;
+      setState(() {
+        _level = lvl;
+        _currentLevelPath = nextPath;
+        _lastLayoutLevelId = null;
+        _lastTick = Duration.zero;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Load Error'),
+          content: Text(e.toString()),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+    }
   }
 
   void _handleTap(TapDownDetails details) {
@@ -258,305 +311,71 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            _layout(Size(constraints.maxWidth, constraints.maxHeight));
-            // Determine overlay message
-            Widget? overlay;
-            if (_loadError != null) {
-              overlay = Center(child: _MessageCard(text: _loadError!));
-            } else if (_level == null) {
-              overlay = const Center(child: _MessageCard(text: 'Loading level...'));
-            } else if (_won) {
-              overlay = GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openLevelPicker,
-                child: Center(child: _MessageCard(text: _level!.winMessage)),
-              );
-            } else if (_lost) {
-              overlay = GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openLevelPicker,
-                child: Center(child: _MessageCard(text: _level!.loseMessage)),
-              );
-            }
+    GameOverlayState overlayState;
+    VoidCallback? overlaySelectLevel;
+    VoidCallback? overlayMenu;
+    VoidCallback? overlayRetry;
+    VoidCallback? overlayNext;
+    if (_loadError != null) {
+      overlayState = GameOverlayState.error(_loadError!);
+    } else if (_level == null) {
+      overlayState = const GameOverlayState.loading();
+    } else if (_won) {
+      overlayState = GameOverlayState.win(_level!.winMessage);
+      overlayNext = _goToNextLevel;
+      overlaySelectLevel = () {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MenuPage(openLevelSelectOnStart: true)),
+          (route) => false,
+        );
+      };
+      overlayMenu = () {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MenuPage()),
+          (route) => false,
+        );
+      };
+    } else if (_lost) {
+      overlayState = GameOverlayState.lose(_level!.loseMessage);
+      overlayRetry = _retryLevel;
+      overlayMenu = () {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MenuPage()),
+          (route) => false,
+        );
+      };
+    } else {
+      overlayState = const GameOverlayState.none();
+    }
 
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: _handleTap,
-                  child: CustomPaint(
-                    painter: _GamePainter(
-                      aliens: _gc.aliens,
-                      player: _gc.player,
-                      obstacles: _gc.obstacles,
-                      projectiles: _gc.projectiles,
-                      now: _gc.elapsedSeconds,
-                      forceField: _gc.forceField,
-                    ),
-                    size: Size.infinite,
-                  ),
-                ),
-                if (_level?.timeLimitSeconds != null)
-                  Positioned(
-                    left: 10,
-                    top: 8,
-                    child: _TimerBadge(text: _formatTimer()),
-                  ),
-                
-                if (overlay != null) overlay,
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: _LevelsButton(onTap: _openLevelPicker),
-                ),
-                Positioned(
-                  right: 8,
-                  top: 36,
-                  child: _MenuButton(onTap: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const MenuPage()),
-                      (route) => false,
-                    );
-                  }),
-                ),
-              ],
-            );
-          },
+    return GameControllerProvider(
+      controller: _gc,
+      child: GameScaffold(
+        canvas: GameCanvas(
+          aliens: _gc.aliens,
+          player: _gc.player,
+          obstacles: _gc.obstacles,
+          projectiles: _gc.projectiles,
+          now: _gc.elapsedSeconds,
+          forceField: _gc.forceField,
         ),
+        overlays: overlayState,
+        onOpenMenu: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MenuPage()),
+            (route) => false,
+          );
+        },
+        onTapDown: _handleTap,
+        onLayout: _layout,
+        showTimer: _level?.timeLimitSeconds != null,
+        timerText: _formatTimer(),
+        onOverlaySelectLevel: overlaySelectLevel,
+        onOverlayMenu: overlayMenu,
+        onOverlayRetry: overlayRetry,
+        onOverlayNext: overlayNext,
       ),
     );
   }
 }
-
-class _GamePainter extends CustomPainter {
-  final List<Alien> aliens;
-  final PlayerShip? player;
-  final List<Obstacle> obstacles;
-  final List<Projectile> projectiles;
-  final double now;
-  final ForceField? forceField;
-
-  _GamePainter({required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Background
-    final bg = Paint()..color = const Color(0xFF0B0F14);
-    canvas.drawRect(Offset.zero & size, bg);
-
-    // Aliens (sprite if available; tint with color; if loading, skip; fallback rect if missing/failed)
-    for (final alien in aliens) {
-      final asset = alien.assetName;
-      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
-      if (asset != null && img == null) {
-        // ignore: discarded_futures
-        SpriteStore.instance.ensure(asset);
-      }
-      if (img != null) {
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        final cf = alien.isFlashing(now)
-            ? const ColorFilter.mode(Color(0xFFFFFFFF), BlendMode.srcIn)
-            : (alien.color != null
-                ? ColorFilter.mode(alien.color!, BlendMode.modulate)
-                : null);
-        final p = Paint()..colorFilter = cf;
-        canvas.drawImageRect(img, src, alien.rect, p);
-      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
-        final baseColor = alien.color ?? const Color(0xFF38D66B);
-        final paint = Paint()..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-        canvas.drawRect(alien.rect, paint);
-      }
-    }
-
-    // Ship
-    final shipPaint = Paint();
-    final s = player;
-    if (s != null) {
-      final asset = s.assetName;
-      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
-      if (asset != null && img == null) {
-        // ignore: discarded_futures
-        SpriteStore.instance.ensure(asset);
-      }
-      if (img != null) {
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        canvas.drawImageRect(img, src, s.rect, Paint());
-      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
-        final baseColor = s.color ?? const Color(0xFF5AA9E6);
-        shipPaint.color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-        canvas.drawRect(s.rect, shipPaint);
-      }
-    }
-
-    // Projectiles
-    final projPaint = Paint()..color = const Color(0xFFE84D4D);
-    for (final p in projectiles) {
-      canvas.drawRect(p.rect, projPaint);
-    }
-
-    // Obstacles (sprite if available; if loading, skip; fallback rect if missing/failed)
-    for (final o in obstacles) {
-      final asset = o.assetName;
-      final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
-      if (asset != null && img == null) {
-        // ignore: discarded_futures
-        SpriteStore.instance.ensure(asset);
-      }
-      if (img != null) {
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        canvas.drawImageRect(img, src, o.rect, Paint());
-      } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
-        final baseColor = o.color ?? const Color(0xFF9AA0A6);
-        final obPaint = Paint()..color = o.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
-        canvas.drawRect(o.rect, obPaint);
-      }
-    }
-
-    // ForceField
-    final ff = forceField;
-    if (ff != null && ff.alive) {
-      // Base: almost transparent
-      final base = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = ff.color.withValues(alpha: 0.15);
-      canvas.drawPath(ff.path, base);
-      // Glow sequence following Swift behavior
-      final gw = ff.glowWidth(now);
-      if (gw > 0) {
-        final glow = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = gw
-          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9);
-        canvas.drawPath(ff.path, glow);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GamePainter oldDelegate) {
-    return oldDelegate.aliens != aliens ||
-        oldDelegate.player != player ||
-        oldDelegate.obstacles != obstacles ||
-        oldDelegate.projectiles != projectiles ||
-        oldDelegate.forceField != forceField ||
-        oldDelegate.now != now;
-  }
-}
-
-
-class _MessageCard extends StatelessWidget {
-  final String text;
-  const _MessageCard({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF000000).withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 16, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _TimerBadge extends StatelessWidget {
-  final String text;
-  const _TimerBadge({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF000000).withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.white,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-  }
-}
-
-class _LevelsButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _LevelsButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF000000).withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.folder_open, size: 16, color: Colors.white),
-              SizedBox(width: 6),
-              Text('Levels', style: TextStyle(color: Colors.white, fontSize: 14)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _MenuButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _MenuButton({required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF000000).withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.home, size: 16, color: Colors.white),
-              SizedBox(width: 6),
-              Text('Menu', style: TextStyle(color: Colors.white, fontSize: 14)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+ 

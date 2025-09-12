@@ -6,8 +6,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../game/level_list.dart';
 import '../game/level.dart';
 
-class MenuPage extends StatelessWidget {
-  const MenuPage({super.key});
+class MenuPage extends StatefulWidget {
+  final bool openLevelSelectOnStart;
+  const MenuPage({super.key, this.openLevelSelectOnStart = false});
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openLevelSelectOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final selected = await Navigator.of(context).push<String>(
+          MaterialPageRoute(builder: (_) => const LevelSelectPage()),
+        );
+        if (!mounted) return;
+        if (selected != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => GamePage(initialLevelPath: selected)),
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,25 +45,6 @@ class MenuPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _MenuButton(
-                label: 'Continue',
-                icon: Icons.play_circle_fill,
-                onTap: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  final order = await LevelList.loadFromAsset('assets/levels/levels.json');
-                  final unlocked = (prefs.getInt('unlocked_count') ?? 1).clamp(1, order.levels.length);
-                  final path = order.levels.isNotEmpty ? order.levels[unlocked - 1] : null;
-                  if (path != null) {
-                    // ignore: use_build_context_synchronously
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => GamePage(initialLevelPath: path),
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
               _MenuButton(
                 label: 'Play',
                 icon: Icons.play_arrow,
@@ -140,6 +145,38 @@ class _SettingsPage extends StatelessWidget {
                   // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to open designer: $e')),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.lock_reset),
+              label: const Text('Reset Progress'),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Reset Progress'),
+                    content: const Text('This will lock all levels except the first. Are you sure?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setInt('unlocked_count', 1);
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Progress reset. Only the first level is unlocked.')),
+                  );
+                } catch (e) {
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to reset: $e')),
                   );
                 }
               },
