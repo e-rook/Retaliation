@@ -23,7 +23,7 @@ class _DesignerPageState extends State<DesignerPage> {
 
   // Alien presets (5 types)
   final List<AlienSpec> _presets = [];
-  int _activeTool = 0; // 0..4 aliens, 5 obstacle, 6 ship
+  int _activeTool = 0; // 0..4 aliens, 5 obstacle, 6 ship, 7 forcefield
 
   // Obstacle tool params
   double _obsW = 0.18; // normalized
@@ -150,12 +150,14 @@ class _DesignerPageState extends State<DesignerPage> {
             for (int i = 0; i < 5; i++) _alienToolButton(i),
             _toolButton(5, Icons.shield, 'Obstacle'),
             _toolButton(6, Icons.directions_boat_filled, 'Ship'),
+            _toolButton(7, Icons.shield_moon, 'ForceField'),
             const SizedBox(width: 16),
             _danceControls(),
             const SizedBox(width: 16),
             _shipControls(),
             const SizedBox(width: 16),
             if (_activeTool == 5) _obstacleControls(),
+            if (_activeTool == 7) _forceFieldControls(),
           ],
           ),
         ),
@@ -430,6 +432,41 @@ class _DesignerPageState extends State<DesignerPage> {
           tileRows: _obsRows,
           tileCols: _obsCols,
         ));
+      } else if (_activeTool == 7) {
+        // Toggle force field present
+        if (_level.forceField == null) {
+          _level = LevelConfig(
+            id: _level.id,
+            title: _level.title,
+            description: _level.description,
+            winMessage: _level.winMessage,
+            loseMessage: _level.loseMessage,
+            timeLimitSeconds: _level.timeLimitSeconds,
+            winConditions: _level.winConditions,
+            loseConditions: _level.loseConditions,
+            aliens: _level.aliens,
+            obstacles: _level.obstacles,
+            ship: _level.ship,
+            dance: _level.dance,
+            forceField: const ForceFieldSpec(transparent: true, health: 999999),
+          );
+        } else {
+          _level = LevelConfig(
+            id: _level.id,
+            title: _level.title,
+            description: _level.description,
+            winMessage: _level.winMessage,
+            loseMessage: _level.loseMessage,
+            timeLimitSeconds: _level.timeLimitSeconds,
+            winConditions: _level.winConditions,
+            loseConditions: _level.loseConditions,
+            aliens: _level.aliens,
+            obstacles: _level.obstacles,
+            ship: _level.ship,
+            dance: _level.dance,
+            forceField: null,
+          );
+        }
       } else {
         final s = _level.ship;
         _setShip(ShipSpec(
@@ -570,6 +607,80 @@ class _DesignerPageState extends State<DesignerPage> {
     await file.writeAsString(jsonStr);
     await Share.shareXFiles([XFile(file.path)], text: 'Level: ${_level.title}');
   }
+
+  Widget _forceFieldControls() {
+    final hasFF = _level.forceField != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('ForceField:'),
+        const SizedBox(width: 8),
+        Switch(
+          value: hasFF,
+          onChanged: (v) {
+            setState(() {
+              if (v) {
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  dance: _level.dance,
+                  forceField: const ForceFieldSpec(transparent: true, health: 999999),
+                );
+              } else {
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  dance: _level.dance,
+                  forceField: null,
+                );
+              }
+            });
+          },
+        ),
+        const SizedBox(width: 12),
+        const Text('Transparent:'),
+        const SizedBox(width: 4),
+        Switch(
+          value: _level.forceField?.transparent ?? true,
+          onChanged: hasFF
+              ? (v) => setState(() => _level = LevelConfig(
+                    id: _level.id,
+                    title: _level.title,
+                    description: _level.description,
+                    winMessage: _level.winMessage,
+                    loseMessage: _level.loseMessage,
+                    timeLimitSeconds: _level.timeLimitSeconds,
+                    winConditions: _level.winConditions,
+                    loseConditions: _level.loseConditions,
+                    aliens: _level.aliens,
+                    obstacles: _level.obstacles,
+                    ship: _level.ship,
+                    dance: _level.dance,
+                    forceField: ForceFieldSpec(transparent: v, health: _level.forceField?.health ?? 999999, color: _level.forceField?.color),
+                  ))
+              : null,
+        ),
+      ],
+    );
+  }
 }
 
 class _DesignerPainter extends CustomPainter {
@@ -637,6 +748,25 @@ class _DesignerPainter extends CustomPainter {
     } else {
       final sp = Paint()..color = s.color ?? const Color(0xFF5AA9E6);
       canvas.drawRect(rs, sp);
+    }
+
+    // ForceField (designer preview) — draw fully visible arc above ship
+    if (level.forceField != null) {
+      final ff = level.forceField!;
+      final baseY = (rs.top - size.height * 0.05).clamp(0.0, size.height);
+      final arcH = size.height * 0.08;
+      final p0 = Offset(0, baseY);
+      final p3 = Offset(size.width, baseY);
+      final c1 = Offset(size.width / 3, baseY - arcH);
+      final c2 = Offset(2 * size.width / 3, baseY - arcH);
+      final path = Path()
+        ..moveTo(p0.dx, p0.dy)
+        ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p3.dx, p3.dy);
+      final stroke = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = (ff.color ?? const Color(0xFF66D9FF)).withValues(alpha: 0.75);
+      canvas.drawPath(path, stroke);
     }
 
     // selection highlight
@@ -712,3 +842,4 @@ extension _ShipSpecCopy on ShipSpec {
     );
   }
 }
+

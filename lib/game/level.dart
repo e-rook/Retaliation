@@ -216,6 +216,7 @@ class LevelConfig {
   final List<ObstacleSpec> obstacles;
   final ShipSpec ship;
   final DanceSpec dance;
+  final ForceFieldSpec? forceField;
 
   LevelConfig({
     required this.id,
@@ -230,6 +231,7 @@ class LevelConfig {
     required this.obstacles,
     required this.ship,
     required this.dance,
+    this.forceField,
   });
 
   factory LevelConfig.fromJson(Map<String, dynamic> j) => LevelConfig(
@@ -245,6 +247,7 @@ class LevelConfig {
         obstacles: ((j['obstacles'] as List?) ?? []).map((e) => ObstacleSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
         ship: ShipSpec.fromJson(Map<String, dynamic>.from(j['ship'] as Map? ?? {})),
         dance: DanceSpec.fromJson(Map<String, dynamic>.from(j['dance'] as Map? ?? {})),
+        forceField: j['forceField'] == null ? null : ForceFieldSpec.fromJson(Map<String, dynamic>.from(j['forceField'] as Map)),
       );
 
   Map<String, dynamic> toJson() => {
@@ -260,6 +263,7 @@ class LevelConfig {
         'obstacles': obstacles.map((e) => e.toJson()).toList(),
         'ship': ship.toJson(),
         'dance': dance.toJson(),
+        if (forceField != null) 'forceField': forceField!.toJson(),
       }..removeWhere((k, v) => v == null);
 
   static Future<LevelConfig> loadFromAsset(String assetPath) async {
@@ -290,6 +294,26 @@ class DanceSpec {
         'hSpeed': hSpeed,
         'vStep': vStep,
       };
+}
+
+class ForceFieldSpec {
+  final bool transparent; // if true, alien projectile passes through (with glow)
+  final int health;
+  final Color? color;
+
+  const ForceFieldSpec({this.transparent = true, this.health = 999999, this.color});
+
+  factory ForceFieldSpec.fromJson(Map<String, dynamic> j) => ForceFieldSpec(
+        transparent: (j['transparent'] ?? true) as bool,
+        health: (j['health'] ?? 999999) as int,
+        color: _parseColor(j['color']),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'transparent': transparent,
+        'health': health,
+        if (color != null) 'color': colorToHex(color!),
+      }..removeWhere((k, v) => v == null);
 }
 
 Color? _parseColor(dynamic v) {
