@@ -725,7 +725,7 @@ class _GamePainter extends CustomPainter {
     final bg = Paint()..color = const Color(0xFF0B0F14);
     canvas.drawRect(Offset.zero & size, bg);
 
-    // Aliens (sprite if available; if loading, skip; fallback rect if missing/failed)
+    // Aliens (sprite if available; tint with color; if loading, skip; fallback rect if missing/failed)
     for (final alien in aliens) {
       final asset = alien.assetName;
       final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
@@ -735,7 +735,13 @@ class _GamePainter extends CustomPainter {
       }
       if (img != null) {
         final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        canvas.drawImageRect(img, src, alien.rect, Paint());
+        final cf = alien.isFlashing(now)
+            ? const ColorFilter.mode(Color(0xFFFFFFFF), BlendMode.srcIn)
+            : (alien.color != null
+                ? ColorFilter.mode(alien.color!, BlendMode.modulate)
+                : null);
+        final p = Paint()..colorFilter = cf;
+        canvas.drawImageRect(img, src, alien.rect, p);
       } else if (asset == null || SpriteStore.instance.hasFailed(asset)) {
         final baseColor = alien.color ?? const Color(0xFF38D66B);
         final paint = Paint()..color = alien.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;

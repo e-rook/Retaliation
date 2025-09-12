@@ -583,7 +583,7 @@ class _DesignerPainter extends CustomPainter {
     final bg = Paint()..color = const Color(0xFF0B0F14);
     canvas.drawRect(Offset.zero & size, bg);
 
-    // draw aliens (try sprite, otherwise colored rect)
+    // draw aliens (sprite with tint if available, else colored rect)
     for (final a in level.aliens) {
       final r = Rect.fromCenter(center: Offset(a.x * size.width, a.y * size.height), width: a.w * size.width, height: a.h * size.height);
       final path = a.asset;
@@ -594,7 +594,9 @@ class _DesignerPainter extends CustomPainter {
       }
       if (img != null) {
         final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        canvas.drawImageRect(img, src, r, Paint());
+        final p = Paint()
+          ..colorFilter = (a.color != null ? ColorFilter.mode(a.color!, BlendMode.modulate) : null);
+        canvas.drawImageRect(img, src, r, p);
       } else {
         final paint = Paint()..color = a.color ?? const Color(0xFF38D66B);
         canvas.drawRect(r, paint);
