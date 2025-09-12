@@ -23,7 +23,7 @@ class _DesignerPageState extends State<DesignerPage> {
 
   // Alien presets (5 types)
   final List<AlienSpec> _presets = [];
-  int _activeTool = 0; // 0..4 aliens, 5 obstacle, 6 ship
+  int _activeTool = 0; // 0..4 aliens, 5 obstacle, 6 ship, 7 forcefield
 
   // Obstacle tool params
   double _obsW = 0.18; // normalized
@@ -150,12 +150,14 @@ class _DesignerPageState extends State<DesignerPage> {
             for (int i = 0; i < 5; i++) _alienToolButton(i),
             _toolButton(5, Icons.shield, 'Obstacle'),
             _toolButton(6, Icons.directions_boat_filled, 'Ship'),
+            _toolButton(7, Icons.shield_moon, 'ForceField'),
             const SizedBox(width: 16),
             _danceControls(),
             const SizedBox(width: 16),
             _shipControls(),
             const SizedBox(width: 16),
             if (_activeTool == 5) _obstacleControls(),
+            if (_activeTool == 7) _forceFieldControls(),
           ],
           ),
         ),
@@ -430,6 +432,41 @@ class _DesignerPageState extends State<DesignerPage> {
           tileRows: _obsRows,
           tileCols: _obsCols,
         ));
+      } else if (_activeTool == 7) {
+        // Toggle force field present
+        if (_level.forceField == null) {
+          _level = LevelConfig(
+            id: _level.id,
+            title: _level.title,
+            description: _level.description,
+            winMessage: _level.winMessage,
+            loseMessage: _level.loseMessage,
+            timeLimitSeconds: _level.timeLimitSeconds,
+            winConditions: _level.winConditions,
+            loseConditions: _level.loseConditions,
+            aliens: _level.aliens,
+            obstacles: _level.obstacles,
+            ship: _level.ship,
+            dance: _level.dance,
+            forceField: const ForceFieldSpec(transparent: true, health: 999999),
+          );
+        } else {
+          _level = LevelConfig(
+            id: _level.id,
+            title: _level.title,
+            description: _level.description,
+            winMessage: _level.winMessage,
+            loseMessage: _level.loseMessage,
+            timeLimitSeconds: _level.timeLimitSeconds,
+            winConditions: _level.winConditions,
+            loseConditions: _level.loseConditions,
+            aliens: _level.aliens,
+            obstacles: _level.obstacles,
+            ship: _level.ship,
+            dance: _level.dance,
+            forceField: null,
+          );
+        }
       } else {
         final s = _level.ship;
         _setShip(ShipSpec(
@@ -569,6 +606,80 @@ class _DesignerPageState extends State<DesignerPage> {
     final file = File('${dir.path}/level_${_level.id}.json');
     await file.writeAsString(jsonStr);
     await Share.shareXFiles([XFile(file.path)], text: 'Level: ${_level.title}');
+  }
+
+  Widget _forceFieldControls() {
+    final hasFF = _level.forceField != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('ForceField:'),
+        const SizedBox(width: 8),
+        Switch(
+          value: hasFF,
+          onChanged: (v) {
+            setState(() {
+              if (v) {
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  dance: _level.dance,
+                  forceField: const ForceFieldSpec(transparent: true, health: 999999),
+                );
+              } else {
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  dance: _level.dance,
+                  forceField: null,
+                );
+              }
+            });
+          },
+        ),
+        const SizedBox(width: 12),
+        const Text('Transparent:'),
+        const SizedBox(width: 4),
+        Switch(
+          value: _level.forceField?.transparent ?? true,
+          onChanged: hasFF
+              ? (v) => setState(() => _level = LevelConfig(
+                    id: _level.id,
+                    title: _level.title,
+                    description: _level.description,
+                    winMessage: _level.winMessage,
+                    loseMessage: _level.loseMessage,
+                    timeLimitSeconds: _level.timeLimitSeconds,
+                    winConditions: _level.winConditions,
+                    loseConditions: _level.loseConditions,
+                    aliens: _level.aliens,
+                    obstacles: _level.obstacles,
+                    ship: _level.ship,
+                    dance: _level.dance,
+                    forceField: ForceFieldSpec(transparent: v, health: _level.forceField?.health ?? 999999, color: _level.forceField?.color),
+                  ))
+              : null,
+        ),
+      ],
+    );
   }
 }
 
@@ -712,3 +823,5 @@ extension _ShipSpecCopy on ShipSpec {
     );
   }
 }
+
+

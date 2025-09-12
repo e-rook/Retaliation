@@ -52,6 +52,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   PlayerShip? _player;
   final List<Obstacle> _obstacles = [];
   final List<Projectile> _projectiles = [];
+  ForceFieldState? _forceField; // optional
   double _elapsedSeconds = 0;
   final Random _rng = Random();
   double? _nextPlayerShotAt;
@@ -171,7 +172,19 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             continue;
           }
         } else {
-          // Alien projectile: hit obstacle first (shield), then player
+          // Alien projectile: check ForceField first
+          if (_forceField != null && _forceField!.hitTest(p)) {
+            _forceField!.onHit(_elapsedSeconds, p.damage);
+            if (_forceField!.transparent) {
+              logv('ForceField', 'Hit (transparent): projectile passes through');
+            } else {
+              logv('ForceField', 'Hit (absorbed): projectile removed');
+              _projectiles.remove(p);
+            }
+            continue;
+          }
+
+          // Then hit obstacle (shield), then player
           Obstacle? hitObs;
           for (final o in _obstacles) {
             if (p.rect.overlaps(o.rect)) {
@@ -594,6 +607,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _danceHSpeed = lvl.dance.hSpeed;
       _danceVStep = lvl.dance.vStep;
       _alienDir = 1;
+      // ForceField from spec (optional)
+      if (lvl.forceField != null && _player != null) {
+        _forceField = ForceFieldState(
+          transparent: lvl.forceField!.transparent,
+          health: lvl.forceField!.health,
+          color: lvl.forceField!.color ?? const Color(0xFF66D9FF),
+        );
+        _forceField!.layout(size, _player!.rect);
+        logv('ForceField', 'Enabled: transparent=${_forceField!.transparent}, health=${_forceField!.health}');
+      } else {
+        _forceField = null;
+      }
     }
     _lastLayoutLevelId = currentLevelId;
     // Do not call setState here; we're in the build/layout phase via LayoutBuilder.
@@ -682,6 +707,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                       obstacles: _obstacles,
                       projectiles: _projectiles,
                       now: _elapsedSeconds,
+                      forceField: _forceField,
                     ),
                     size: Size.infinite,
                   ),
@@ -716,8 +742,9 @@ class _GamePainter extends CustomPainter {
   final List<Obstacle> obstacles;
   final List<Projectile> projectiles;
   final double now;
+  final ForceFieldState? forceField;
 
-  _GamePainter({required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now});
+  _GamePainter({required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -792,6 +819,26 @@ class _GamePainter extends CustomPainter {
         canvas.drawRect(o.rect, obPaint);
       }
     }
+
+    // ForceField
+    final ff = forceField;
+    if (ff != null && ff.alive) {
+      // Base: almost transparent
+      final base = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = ff.color.withValues(alpha: 0.15);
+      canvas.drawPath(ff.path, base);
+      // Glow sequence following Swift behavior
+      final gw = ff.glowWidth(now);
+      if (gw > 0) {
+        final glow = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = gw
+          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9);
+        canvas.drawPath(ff.path, glow);
+      }
+    }
   }
 
   @override
@@ -799,7 +846,95 @@ class _GamePainter extends CustomPainter {
     return oldDelegate.aliens != aliens ||
         oldDelegate.player != player ||
         oldDelegate.obstacles != obstacles ||
-        oldDelegate.projectiles != projectiles;
+        oldDelegate.projectiles != projectiles ||
+        oldDelegate.forceField != forceField ||
+        oldDelegate.now != now;
+  }
+}
+
+class ForceFieldState {
+  bool transparent;
+  int health;
+  final Color color;
+  double thickness;
+  Path path = Path();
+  List<Offset> _polyline = const [];
+  double _hitStart = -1;
+  bool alive = true;
+  final double _hitThickness = 20.0; // collision thickness independent of draw thickness
+
+  ForceFieldState({required this.transparent, required this.health, required this.color, this.thickness = 3});
+
+  void layout(Size size, Rect shipRect) {
+    // Base y slightly above ship
+    final baseY = (shipRect.top - size.height * 0.035).clamp(0.0, size.height);
+    final arcH = size.height * 0.05;
+    final c1 = Offset(size.width / 3, baseY - arcH);
+    final c2 = Offset(2 * size.width / 3, baseY - arcH);
+    final p0 = Offset(0, baseY);
+    final p3 = Offset(size.width, baseY);
+    final p = Path()..moveTo(p0.dx, p0.dy)..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p3.dx, p3.dy);
+    path = p;
+    // Sample polyline for collision
+    const steps = 48;
+    final pts = <Offset>[];
+    for (int i = 0; i <= steps; i++) {
+      final t = i / steps;
+      pts.add(_cubicPoint(p0, c1, c2, p3, t));
+    }
+    _polyline = pts;
+  }
+
+  bool hitTest(Projectile proj) {
+    logv("About to hit test on Force Field", "");
+    if (!alive) return false;
+    // Distance from projectile center to polyline
+    final pt = proj.center;
+    double minD2 = double.infinity;
+    for (int i = 0; i + 1 < _polyline.length; i++) {
+      final a = _polyline[i];
+      final b = _polyline[i + 1];
+      final d2 = _pointToSegmentDist2(pt, a, b);
+      if (d2 < minD2) minD2 = d2;
+    }
+    final rad = (_hitThickness / 2) + (proj.size.shortestSide / 2);
+    return minD2 <= rad * rad;
+  }
+
+  void onHit(double now, int damage) {
+    _hitStart = now;
+    health -= damage;
+    if (health <= 0) alive = false;
+  }
+
+  bool get isGlowing => _hitStart > 0;
+  double glowWidth(double now) {
+    if (_hitStart < 0) return 0;
+    final t = now - _hitStart;
+    if (t < 0) return 0;
+    if (t < 0.05) return 0; // lineWidth=1, glow=0
+    if (t < 0.15) return 3; // glowWidth=3
+    if (t < 0.25) return 1; // glowWidth=1
+    // end of sequence
+    _hitStart = -1;
+    return 0;
+  }
+
+  static Offset _cubicPoint(Offset p0, Offset c1, Offset c2, Offset p3, double t) {
+    final mt = 1 - t;
+    final x = mt * mt * mt * p0.dx + 3 * mt * mt * t * c1.dx + 3 * mt * t * t * c2.dx + t * t * t * p3.dx;
+    final y = mt * mt * mt * p0.dy + 3 * mt * mt * t * c1.dy + 3 * mt * t * t * c2.dy + t * t * t * p3.dy;
+    return Offset(x, y);
+  }
+
+  static double _pointToSegmentDist2(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final t = ((p - a).dx * ab.dx + (p - a).dy * ab.dy) / (ab.dx * ab.dx + ab.dy * ab.dy + 1e-6);
+    final tt = t.clamp(0.0, 1.0);
+    final proj = Offset(a.dx + ab.dx * tt, a.dy + ab.dy * tt);
+    final dx = p.dx - proj.dx;
+    final dy = p.dy - proj.dy;
+    return dx * dx + dy * dy;
   }
 }
 

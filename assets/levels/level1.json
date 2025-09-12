@@ -15,6 +15,7 @@
   "loseConditions": [
     "timer_elapsed"
   ],
+  "forceField": { "transparent": false, "health": 999999, "color": "#66D9FF" },
   "aliens": [
     {
       "x": 0.18,
