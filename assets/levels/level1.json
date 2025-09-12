@@ -15,7 +15,11 @@
   "loseConditions": [
     "timer_elapsed"
   ],
-  "forceField": { "transparent": true, "health": 999999, "color": "#66D9FF" },
+  "forceField": {
+    "transparent": true,
+    "health": 999999,
+    "color": "#66D9FF"
+  },
   "aliens": [
     {
       "x": 0.18,
@@ -241,7 +245,8 @@
     "shooter": {
       "power": 1,
       "reloadSeconds": 0.6,
-      "bulletSpeed": 360
+      "bulletSpeed": 360,
+      "reloadRandom": 0.8
     },
     "ai": {
       "moveChancePerSecond": 0.6,

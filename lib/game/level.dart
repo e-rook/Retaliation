@@ -7,19 +7,22 @@ class ShooterSpec {
   final int power;
   final double reloadSeconds;
   final double bulletSpeed;
+  final double reloadRandom; // extra seconds in [0..reloadRandom]
 
-  const ShooterSpec({required this.power, required this.reloadSeconds, required this.bulletSpeed});
+  const ShooterSpec({required this.power, required this.reloadSeconds, required this.bulletSpeed, this.reloadRandom = 0});
 
   factory ShooterSpec.fromJson(Map<String, dynamic> j) => ShooterSpec(
         power: (j['power'] ?? 1) as int,
         reloadSeconds: (j['reloadSeconds'] ?? 1.0).toDouble(),
         bulletSpeed: (j['bulletSpeed'] ?? 280).toDouble(),
+        reloadRandom: (j['reloadRandom'] ?? 0).toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
         'power': power,
         'reloadSeconds': reloadSeconds,
         'bulletSpeed': bulletSpeed,
+        'reloadRandom': reloadRandom,
       };
 }
 

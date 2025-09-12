@@ -30,6 +30,7 @@ abstract class GameObject {
 mixin Shooter {
   late int shootingPower; // damage per shot
   late double reloadSeconds; // time between shots
+  double reloadRandomMax = 0.0; // extra random seconds [0..max]
   double _lastShotTime = -1e9;
 
   bool canShoot(double nowSeconds) => (nowSeconds - _lastShotTime) >= reloadSeconds;
@@ -37,4 +38,3 @@ mixin Shooter {
     _lastShotTime = nowSeconds;
   }
 }
-
