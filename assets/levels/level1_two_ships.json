@@ -5,41 +5,191 @@
   "winMessage": "Both ships prevailed!",
   "loseMessage": "Time's up!",
   "timeLimitSeconds": 30,
-  "dance": { "hSpeed": 40, "vStep": 18 },
-  "winConditions": ["aliens_destroyed", "timer_elapsed"],
-  "loseConditions": ["ship_destroyed"],
-  "forceField": { "transparent": true, "health": 999999, "color": "#66D9FF" },
+  "dance": {
+    "hSpeed": 40,
+    "vStep": 18
+  },
+  "winConditions": [
+    "aliens_destroyed",
+    "timer_elapsed"
+  ],
+  "loseConditions": [
+    "ship_destroyed"
+  ],
+  "forceField": {
+    "transparent": true,
+    "health": 999999,
+    "color": "#66D9FF"
+  },
   "aliens": [
-    { "x": 0.18, "y": 0.18, "w": 0.09, "h": 0.05, "health": 1, "asset": "assets/sprites/simple_space/aliens/alien1.png", "color": "#E84D4D", "speed": 0, "shooter": { "power": 1, "reloadSeconds": 0.8, "bulletSpeed": 280 } },
-    { "x": 0.30, "y": 0.18, "w": 0.09, "h": 0.05, "health": 1, "asset": "assets/sprites/simple_space/aliens/alien2.png", "color": "#38D66B", "speed": 0, "shooter": { "power": 1, "reloadSeconds": 0.8, "bulletSpeed": 280 } },
-    { "x": 0.42, "y": 0.18, "w": 0.09, "h": 0.05, "health": 1, "asset": "assets/sprites/simple_space/aliens/alien3.png", "color": "#5AA9E6", "speed": 0, "shooter": { "power": 1, "reloadSeconds": 0.8, "bulletSpeed": 280 } },
-    { "x": 0.54, "y": 0.18, "w": 0.09, "h": 0.05, "health": 1, "asset": "assets/sprites/simple_space/aliens/alien4.png", "color": "#FFCC00", "speed": 0, "shooter": { "power": 1, "reloadSeconds": 0.8, "bulletSpeed": 280 } },
-    { "x": 0.66, "y": 0.18, "w": 0.09, "h": 0.05, "health": 1, "asset": "assets/sprites/simple_space/aliens/alien5.png", "color": "#BB66FF", "speed": 0, "shooter": { "power": 1, "reloadSeconds": 0.8, "bulletSpeed": 280 } }
+    {
+      "x": 0.18,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "asset": "assets/sprites/simple_space/aliens/alien1.png",
+      "color": "#E84D4D",
+      "speed": 0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280
+      }
+    },
+    {
+      "x": 0.3,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "asset": "assets/sprites/simple_space/aliens/alien2.png",
+      "color": "#38D66B",
+      "speed": 0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280
+      }
+    },
+    {
+      "x": 0.42,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "asset": "assets/sprites/simple_space/aliens/alien3.png",
+      "color": "#5AA9E6",
+      "speed": 0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280
+      }
+    },
+    {
+      "x": 0.54,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "asset": "assets/sprites/simple_space/aliens/alien4.png",
+      "color": "#FFCC00",
+      "speed": 0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280
+      }
+    },
+    {
+      "x": 0.66,
+      "y": 0.18,
+      "w": 0.09,
+      "h": 0.05,
+      "health": 1,
+      "asset": "assets/sprites/simple_space/aliens/alien5.png",
+      "color": "#BB66FF",
+      "speed": 0,
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.8,
+        "bulletSpeed": 280
+      }
+    }
   ],
   "obstacles": [
-    { "x": 0.25, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6 },
-    { "x": 0.50, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6 },
-    { "x": 0.75, "y": 0.72, "w": 0.18, "h": 0.04, "health": 1, "color": "#9AA0A6", "tileRows": 3, "tileCols": 6 }
+    {
+      "x": 0.25,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.5,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    },
+    {
+      "x": 0.75,
+      "y": 0.72,
+      "w": 0.18,
+      "h": 0.04,
+      "health": 1,
+      "color": "#9AA0A6",
+      "tileRows": 3,
+      "tileCols": 6
+    }
   ],
   "ship": {
-    "x": 0.5, "y": 0.92, "w": 0.16, "h": 0.035, "health": 3,
-    "asset": "assets/sprites/simple_space/ship/player.png", "color": "#5AA9E6",
-    "shooter": { "power": 1, "reloadSeconds": 0.6, "bulletSpeed": 360, "reloadRandom": 0.8 },
-    "ai": { "moveChancePerSecond": 0.6, "avoidChance": 0.5, "moveSpeed": 220 }
+    "x": 0.5,
+    "y": 0.92,
+    "w": 0.16,
+    "h": 0.035,
+    "health": 3,
+    "asset": "assets/sprites/simple_space/ship/player.png",
+    "color": "#5AA9E6",
+    "shooter": {
+      "power": 1,
+      "reloadSeconds": 0.6,
+      "bulletSpeed": 360,
+      "reloadRandom": 0.8
+    },
+    "ai": {
+      "moveChancePerSecond": 0.6,
+      "avoidChance": 0.5,
+      "moveSpeed": 220
+    }
   },
   "ships": [
     {
-      "x": 0.42, "y": 0.92, "w": 0.16, "h": 0.035, "health": 3,
-      "asset": "assets/sprites/simple_space/ship/player.png", "color": "#5AA9E6",
-      "shooter": { "power": 1, "reloadSeconds": 0.6, "bulletSpeed": 360, "reloadRandom": 0.8 },
-      "ai": { "moveChancePerSecond": 0.6, "avoidChance": 0.5, "moveSpeed": 220 }
+      "x": 0.42,
+      "y": 0.92,
+      "w": 0.16,
+      "h": 0.035,
+      "health": 3,
+      "asset": "assets/sprites/simple_space/ship/player.png",
+      "color": "#5AA9E6",
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.6,
+        "bulletSpeed": 360,
+        "reloadRandom": 0.8
+      },
+      "ai": {
+        "moveChancePerSecond": 0.6,
+        "avoidChance": 0.5,
+        "moveSpeed": 220
+      }
     },
     {
-      "x": 0.58, "y": 0.92, "w": 0.16, "h": 0.035, "health": 3,
-      "asset": "assets/sprites/simple_space/ship/player.png", "color": "#5AA9E6",
-      "shooter": { "power": 1, "reloadSeconds": 0.6, "bulletSpeed": 360, "reloadRandom": 0.8 },
-      "ai": { "moveChancePerSecond": 0.6, "avoidChance": 0.5, "moveSpeed": 220 }
+      "x": 0.58,
+      "y": 0.92,
+      "w": 0.16,
+      "h": 0.035,
+      "health": 3,
+      "asset": "assets/sprites/simple_space/ship/player.png",
+      "color": "#FFCC00",
+      "shooter": {
+        "power": 1,
+        "reloadSeconds": 0.6,
+        "bulletSpeed": 360,
+        "reloadRandom": 0.8
+      },
+      "ai": {
+        "moveChancePerSecond": 0.6,
+        "avoidChance": 0.5,
+        "moveSpeed": 220
+      }
     }
   ]
 }
-

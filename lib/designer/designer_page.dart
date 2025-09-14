@@ -156,6 +156,8 @@ class _DesignerPageState extends State<DesignerPage> {
             const SizedBox(width: 16),
             _shipControls(),
             const SizedBox(width: 16),
+            _multiShipControls(),
+            const SizedBox(width: 16),
             if (_activeTool == 5) _obstacleControls(),
             if (_activeTool == 7) _forceFieldControls(),
           ],
@@ -282,7 +284,9 @@ class _DesignerPageState extends State<DesignerPage> {
               aliens: _level.aliens,
               obstacles: _level.obstacles,
               ship: _level.ship,
+              ships: _level.ships,
               dance: DanceSpec(hSpeed: v, vStep: _level.dance.vStep),
+              forceField: _level.forceField,
             ))),
         const SizedBox(width: 8),
         const Text('vStep:'),
@@ -298,7 +302,9 @@ class _DesignerPageState extends State<DesignerPage> {
               aliens: _level.aliens,
               obstacles: _level.obstacles,
               ship: _level.ship,
+              ships: _level.ships,
               dance: DanceSpec(hSpeed: _level.dance.hSpeed, vStep: v),
+              forceField: _level.forceField,
             ))),
       ],
     );
@@ -344,7 +350,9 @@ class _DesignerPageState extends State<DesignerPage> {
         aliens: _level.aliens,
         obstacles: _level.obstacles,
         ship: newShip,
+        ships: _level.ships,
         dance: _level.dance,
+        forceField: _level.forceField,
       );
     });
   }
@@ -353,6 +361,108 @@ class _DesignerPageState extends State<DesignerPage> {
     final hex = _shipColor.text.trim();
     final c = parseColorHex(hex) ?? _level.ship.color ?? const Color(0xFF5AA9E6);
     _setShip(_level.ship.copyWith(color: c));
+  }
+
+  Widget _multiShipControls() {
+    final hasSecond = _level.ships.length >= 2;
+    final second = hasSecond ? _level.ships[1] : null;
+    final secondColorCtl = TextEditingController(text: colorToHex(second?.color ?? const Color(0xFFFFCC00)));
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Multi-ship:'),
+        const SizedBox(width: 8),
+        if (!hasSecond)
+          FilledButton.icon(
+            icon: const Icon(Icons.group_add),
+            label: const Text('Add 2nd Ship'),
+            onPressed: () {
+              setState(() {
+                final base = _level.ship;
+                final leftX = (base.x - base.w).clamp(0.0, 1.0);
+                final rightX = (base.x + base.w).clamp(0.0, 1.0);
+                final s1 = base.copyWith(x: leftX);
+                final s2 = base.copyWith(x: rightX, color: const Color(0xFFFFCC00));
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  ships: [s1, s2],
+                  dance: _level.dance,
+                  forceField: _level.forceField,
+                );
+              });
+            },
+          )
+        else ...[
+          const Text('Second color:'),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 90,
+            child: TextField(
+              controller: secondColorCtl,
+              onSubmitted: (_) {
+                final c = parseColorHex(secondColorCtl.text.trim()) ?? (second?.color ?? const Color(0xFFFFCC00));
+                setState(() {
+                  final ships = List<ShipSpec>.from(_level.ships);
+                  ships[1] = ships[1].copyWith(color: c);
+                  _level = LevelConfig(
+                    id: _level.id,
+                    title: _level.title,
+                    description: _level.description,
+                    winMessage: _level.winMessage,
+                    loseMessage: _level.loseMessage,
+                    timeLimitSeconds: _level.timeLimitSeconds,
+                    winConditions: _level.winConditions,
+                    loseConditions: _level.loseConditions,
+                    aliens: _level.aliens,
+                    obstacles: _level.obstacles,
+                    ship: _level.ship,
+                    ships: ships,
+                    dance: _level.dance,
+                    forceField: _level.forceField,
+                  );
+                });
+              },
+              decoration: const InputDecoration(isDense: true, hintText: '#RRGGBB'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.group_off),
+            label: const Text('Remove 2nd'),
+            onPressed: () {
+              setState(() {
+                _level = LevelConfig(
+                  id: _level.id,
+                  title: _level.title,
+                  description: _level.description,
+                  winMessage: _level.winMessage,
+                  loseMessage: _level.loseMessage,
+                  timeLimitSeconds: _level.timeLimitSeconds,
+                  winConditions: _level.winConditions,
+                  loseConditions: _level.loseConditions,
+                  aliens: _level.aliens,
+                  obstacles: _level.obstacles,
+                  ship: _level.ship,
+                  ships: const [],
+                  dance: _level.dance,
+                  forceField: _level.forceField,
+                );
+              });
+            },
+          ),
+        ],
+      ],
+    );
   }
 
   Widget _obstacleControls() {
@@ -447,6 +557,7 @@ class _DesignerPageState extends State<DesignerPage> {
             aliens: _level.aliens,
             obstacles: _level.obstacles,
             ship: _level.ship,
+            ships: _level.ships,
             dance: _level.dance,
             forceField: const ForceFieldSpec(transparent: true, health: 999999),
           );
@@ -463,6 +574,7 @@ class _DesignerPageState extends State<DesignerPage> {
             aliens: _level.aliens,
             obstacles: _level.obstacles,
             ship: _level.ship,
+            ships: _level.ships,
             dance: _level.dance,
             forceField: null,
           );
@@ -632,6 +744,7 @@ class _DesignerPageState extends State<DesignerPage> {
                   aliens: _level.aliens,
                   obstacles: _level.obstacles,
                   ship: _level.ship,
+                  ships: _level.ships,
                   dance: _level.dance,
                   forceField: const ForceFieldSpec(transparent: true, health: 999999),
                 );
@@ -648,6 +761,7 @@ class _DesignerPageState extends State<DesignerPage> {
                   aliens: _level.aliens,
                   obstacles: _level.obstacles,
                   ship: _level.ship,
+                  ships: _level.ships,
                   dance: _level.dance,
                   forceField: null,
                 );
@@ -733,27 +847,32 @@ class _DesignerPainter extends CustomPainter {
         canvas.drawRect(r, paint);
       }
     }
-    // ship
-    final s = level.ship;
-    final rs = Rect.fromCenter(center: Offset(s.x * size.width, s.y * size.height), width: s.w * size.width, height: s.h * size.height);
-    final spath = s.asset;
-    final ui.Image? simg = (spath != null) ? SpriteStore.instance.imageFor(spath) : null;
-    if (spath != null && simg == null) {
-      // ignore: discarded_futures
-      SpriteStore.instance.ensure(spath);
-    }
-    if (simg != null) {
-      final src = Rect.fromLTWH(0, 0, simg.width.toDouble(), simg.height.toDouble());
-      canvas.drawImageRect(simg, src, rs, Paint());
-    } else {
-      final sp = Paint()..color = s.color ?? const Color(0xFF5AA9E6);
-      canvas.drawRect(rs, sp);
+    // ships
+    final ships = level.ships.isNotEmpty ? level.ships : [level.ship];
+    for (final s in ships) {
+      final rs = Rect.fromCenter(center: Offset(s.x * size.width, s.y * size.height), width: s.w * size.width, height: s.h * size.height);
+      final spath = s.asset;
+      final ui.Image? simg = (spath != null) ? SpriteStore.instance.imageFor(spath) : null;
+      if (spath != null && simg == null) {
+        // ignore: discarded_futures
+        SpriteStore.instance.ensure(spath);
+      }
+      if (simg != null) {
+        final src = Rect.fromLTWH(0, 0, simg.width.toDouble(), simg.height.toDouble());
+        final p = Paint()..colorFilter = (s.color != null ? ColorFilter.mode(s.color!, BlendMode.modulate) : null);
+        canvas.drawImageRect(simg, src, rs, p);
+      } else {
+        final sp = Paint()..color = s.color ?? const Color(0xFF5AA9E6);
+        canvas.drawRect(rs, sp);
+      }
     }
 
-    // ForceField (designer preview) — draw fully visible arc above ship
+    // ForceField (designer preview) — draw fully visible arc above ship(s)
     if (level.forceField != null) {
       final ff = level.forceField!;
-      final baseY = (rs.top - size.height * 0.05).clamp(0.0, size.height);
+      final refShip = ships.first;
+      final r0 = Rect.fromCenter(center: Offset(refShip.x * size.width, refShip.y * size.height), width: refShip.w * size.width, height: refShip.h * size.height);
+      final baseY = (r0.top - size.height * 0.05).clamp(0.0, size.height);
       final arcH = size.height * 0.08;
       final p0 = Offset(0, baseY);
       final p3 = Offset(size.width, baseY);
@@ -793,7 +912,7 @@ class _DesignerPainter extends CustomPainter {
           }
           break;
         case _SelType.ship:
-          final s = level.ship;
+          final s = (level.ships.isNotEmpty ? level.ships.first : level.ship);
           final r = Rect.fromCenter(center: Offset(s.x * size.width, s.y * size.height), width: s.w * size.width, height: s.h * size.height);
           canvas.drawRect(r.inflate(2), hi);
           break;

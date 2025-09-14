@@ -270,6 +270,7 @@ class LevelConfig {
         'aliens': aliens.map((e) => e.toJson()).toList(),
         'obstacles': obstacles.map((e) => e.toJson()).toList(),
         'ship': ship.toJson(),
+        if (ships.isNotEmpty) 'ships': ships.map((e) => e.toJson()).toList(),
         'dance': dance.toJson(),
         if (forceField != null) 'forceField': forceField!.toJson(),
       }..removeWhere((k, v) => v == null);

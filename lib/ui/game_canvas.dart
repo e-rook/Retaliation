@@ -66,7 +66,10 @@ class _GamePainter extends CustomPainter {
       }
       if (img != null) {
         final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        canvas.drawImageRect(img, src, s.rect, Paint()..colorFilter = (s.isFlashing(now) ? const ColorFilter.mode(Color(0xFFFFFFFF), BlendMode.srcIn) : null));
+        final cf = s.isFlashing(now)
+            ? const ColorFilter.mode(Color(0xFFFFFFFF), BlendMode.srcIn)
+            : (s.color != null ? ColorFilter.mode(s.color!, BlendMode.modulate) : null);
+        canvas.drawImageRect(img, src, s.rect, Paint()..colorFilter = cf);
       } else {
         final baseColor = s.color ?? const Color(0xFF5AA9E6);
         final shipPaint = Paint()..color = s.isFlashing(now) ? const Color(0xFFFFFFFF) : baseColor;
