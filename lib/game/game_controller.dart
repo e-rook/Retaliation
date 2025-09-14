@@ -12,7 +12,7 @@ typedef LogFn = void Function(String tag, String message);
 class GameController extends ChangeNotifier {
   // Public state (read-only from UI)
   final List<Alien> aliens = [];
-  PlayerShip? player;
+  final List<PlayerShip> players = [];
   final List<Obstacle> obstacles = [];
   final List<Projectile> projectiles = [];
   ForceField? forceField;
@@ -27,12 +27,12 @@ class GameController extends ChangeNotifier {
   double elapsedSeconds = 0;
 
   // AI & movement
-  double? _shipTargetX;
+  final Map<PlayerShip, double?> _shipTargetX = {};
   double _shipMoveSpeed = 220;
   double _shipMoveChance = 0.6;
   double _shipAvoidChance = 0.5;
   double _shipBulletSpeed = 360;
-  double? _nextPlayerShotAt;
+  final Map<PlayerShip, double> _nextPlayerShotAt = {};
 
   // Dance
   double _danceHSpeed = 0;
@@ -55,13 +55,13 @@ class GameController extends ChangeNotifier {
     aliens.clear();
     obstacles.clear();
     projectiles.clear();
-    player = null;
+    players.clear();
     forceField = null;
     won = false;
     lost = false;
     elapsedSeconds = 0;
-    _shipTargetX = null;
-    _nextPlayerShotAt = null;
+    _shipTargetX.clear();
+    _nextPlayerShotAt.clear();
     // Defer geometry to layout(Size)
     notifyListeners();
   }
@@ -86,24 +86,27 @@ class GameController extends ChangeNotifier {
             reload: a.shooter.reloadSeconds,
           )));
 
-    // Ship
-    final s = lvl.ship;
-    player = PlayerShip(
-      center: Offset(s.x * size.width, s.y * size.height),
-      size: Size(s.w * size.width, s.h * size.height),
-      assetName: s.asset,
-      health: s.health,
-      color: s.color,
-      power: s.shooter.power,
-      reload: s.shooter.reloadSeconds,
-    );
-    player!.reloadRandomMax = s.shooter.reloadRandom;
-
-    _shipMoveSpeed = s.ai.moveSpeed;
-    _shipMoveChance = s.ai.moveChancePerSecond;
-    _shipAvoidChance = s.ai.avoidChance;
-    _shipBulletSpeed = s.shooter.bulletSpeed;
-    _nextPlayerShotAt = elapsedSeconds + 0.5 + rng.nextDouble();
+    // Ships (support multiple)
+    final ships = (lvl.ships.isNotEmpty ? lvl.ships : [lvl.ship]);
+    for (final s in ships) {
+      final ps = PlayerShip(
+        center: Offset(s.x * size.width, s.y * size.height),
+        size: Size(s.w * size.width, s.h * size.height),
+        assetName: s.asset,
+        health: s.health,
+        color: s.color,
+        power: s.shooter.power,
+        reload: s.shooter.reloadSeconds,
+      );
+      ps.reloadRandomMax = s.shooter.reloadRandom;
+      players.add(ps);
+      _nextPlayerShotAt[ps] = elapsedSeconds + 0.5 + rng.nextDouble();
+      // Use last ship's params as global AI tunables (applied per ship below)
+      _shipMoveSpeed = s.ai.moveSpeed;
+      _shipMoveChance = s.ai.moveChancePerSecond;
+      _shipAvoidChance = s.ai.avoidChance;
+      _shipBulletSpeed = s.shooter.bulletSpeed;
+    }
 
     // Obstacles (with tiling)
     obstacles.clear();
@@ -152,13 +155,13 @@ class GameController extends ChangeNotifier {
     _alienDir = 1;
 
     // Force field
-    if (lvl.forceField != null && player != null) {
+    if (lvl.forceField != null && players.isNotEmpty) {
       forceField = ForceField(
         transparent: lvl.forceField!.transparent,
         health: lvl.forceField!.health,
         color: lvl.forceField!.color ?? const Color(0xFF66D9FF),
       );
-      forceField!.layout(size, player!.rect);
+      forceField!.layout(size, players.first.rect);
       log('ForceField', 'Enabled: transparent=${forceField!.transparent}, health=${forceField!.health}');
     } else {
       forceField = null;
@@ -182,15 +185,14 @@ class GameController extends ChangeNotifier {
     // Cull off-screen
     projectiles.removeWhere((p) => p.center.dy - p.size.height / 2 > _size.height || p.center.dy + p.size.height / 2 < 0);
 
-    // Auto-fire from ship
-    final s = player;
-    if (s != null) {
-      _nextPlayerShotAt ??= elapsedSeconds + 0.5 + rng.nextDouble();
-      if (elapsedSeconds >= (_nextPlayerShotAt ?? 0) && s.canShoot(elapsedSeconds)) {
+    // Auto-fire from ships
+    for (final s in List<PlayerShip>.from(players)) {
+      final nextAt = _nextPlayerShotAt[s] ?? (elapsedSeconds + 0.5 + rng.nextDouble());
+      if (elapsedSeconds >= nextAt && s.canShoot(elapsedSeconds)) {
         _fireFromPlayer(s);
         final base = s.reloadSeconds;
         final rand = rng.nextDouble() * (s.reloadRandomMax);
-        _nextPlayerShotAt = elapsedSeconds + base + rand;
+        _nextPlayerShotAt[s] = elapsedSeconds + base + rand;
       }
     }
 
@@ -304,14 +306,20 @@ class GameController extends ChangeNotifier {
           continue;
         }
 
-        // Ship
-        final ps = player;
-        if (ps != null && p.rect.overlaps(ps.rect)) {
-          ps.health -= p.damage;
-          ps.flash(elapsedSeconds);
+        // Ships: hit any player ship
+        PlayerShip? hitShip;
+        for (final s in players) {
+          if (p.rect.overlaps(s.rect)) {
+            hitShip = s;
+            break;
+          }
+        }
+        if (hitShip != null) {
+          hitShip.health -= p.damage;
+          hitShip.flash(elapsedSeconds);
           projectiles.remove(p);
-          if (ps.health <= 0) {
-            player = null;
+          if (hitShip.health <= 0) {
+            players.remove(hitShip);
           }
           continue;
         }
@@ -324,7 +332,7 @@ class GameController extends ChangeNotifier {
     if (lvl == null) return;
     bool winLocal = false, loseLocal = false;
     final timerElapsed = lvl.timeLimitSeconds != null && elapsedSeconds >= (lvl.timeLimitSeconds ?? 0);
-    final shipDestroyed = player == null;
+    final shipDestroyed = players.isEmpty;
     final aliensDestroyed = aliens.isEmpty;
     for (final c in lvl.winConditions) {
       switch (c) {
@@ -359,42 +367,43 @@ class GameController extends ChangeNotifier {
   }
 
   void _updateShipAI(double dt) {
-    final s = player;
-    if (s == null) return;
-    // Random target selection
-    if (_shipTargetX == null || (s.center.dx - (_shipTargetX ?? s.center.dx)).abs() < 3) {
-      if (rng.nextDouble() < _shipMoveChance * dt) {
-        _shipTargetX = rng.nextDouble() * _size.width;
+    for (final s in players) {
+      // Random target selection
+      final currentTarget = _shipTargetX[s];
+      if (currentTarget == null || (s.center.dx - (currentTarget)).abs() < 3) {
+        if (rng.nextDouble() < _shipMoveChance * dt) {
+          _shipTargetX[s] = rng.nextDouble() * _size.width;
+        }
       }
-    }
-    // Avoidance: nearest alien projectile approaching
-    Projectile? danger;
-    double bestDy = double.infinity;
-    for (final p in projectiles) {
-      if (p.ownerKind != 'alien') continue;
-      final dy = s.center.dy - p.center.dy;
-      if (dy > 0 && dy < bestDy && (p.center - s.center).distance < _size.width * 0.3) {
-        bestDy = dy;
-        danger = p;
+      // Avoidance: nearest alien projectile approaching
+      Projectile? danger;
+      double bestDy = double.infinity;
+      for (final p in projectiles) {
+        if (p.ownerKind != 'alien') continue;
+        final dy = s.center.dy - p.center.dy;
+        if (dy > 0 && dy < bestDy && (p.center - s.center).distance < _size.width * 0.3) {
+          bestDy = dy;
+          danger = p;
+        }
       }
-    }
-    if (danger != null && rng.nextDouble() < _shipAvoidChance * dt) {
-      final away = (s.center.dx - danger.center.dx) >= 0 ? 1 : -1;
-      final target = (s.center.dx + away * _size.width * 0.25)
-          .clamp(s.size.width / 2, _size.width - s.size.width / 2);
-      _shipTargetX = target.toDouble();
-    }
-    // Move toward target
-    final tx = _shipTargetX;
-    if (tx != null) {
-      final dir = tx - s.center.dx;
-      final step = _shipMoveSpeed * dt * dir.sign;
-      if (dir.abs() <= step.abs()) {
-        s.center = Offset(tx, s.center.dy);
-      } else {
-        s.center = Offset(
-            (s.center.dx + step).clamp(s.size.width / 2, _size.width - s.size.width / 2),
-            s.center.dy);
+      if (danger != null && rng.nextDouble() < _shipAvoidChance * dt) {
+        final away = (s.center.dx - danger.center.dx) >= 0 ? 1 : -1;
+        final target = (s.center.dx + away * _size.width * 0.25)
+            .clamp(s.size.width / 2, _size.width - s.size.width / 2);
+        _shipTargetX[s] = target.toDouble();
+      }
+      // Move toward target
+      final tx = _shipTargetX[s];
+      if (tx != null) {
+        final dir = tx - s.center.dx;
+        final step = _shipMoveSpeed * dt * dir.sign;
+        if (dir.abs() <= step.abs()) {
+          s.center = Offset(tx, s.center.dy);
+        } else {
+          s.center = Offset(
+              (s.center.dx + step).clamp(s.size.width / 2, _size.width - s.size.width / 2),
+              s.center.dy);
+        }
       }
     }
   }

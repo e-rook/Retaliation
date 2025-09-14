@@ -6,18 +6,18 @@ import '../gfx/sprites.dart';
 
 class GameCanvas extends StatelessWidget {
   final List<Alien> aliens;
-  final PlayerShip? player;
+  final List<PlayerShip> players;
   final List<Obstacle> obstacles;
   final List<Projectile> projectiles;
   final double now;
   final ForceField? forceField;
 
-  const GameCanvas({super.key, required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
+  const GameCanvas({super.key, required this.aliens, required this.players, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _GamePainter(aliens: aliens, player: player, obstacles: obstacles, now: now, forceField: forceField, projectiles: projectiles),
+      painter: _GamePainter(aliens: aliens, players: players, obstacles: obstacles, now: now, forceField: forceField, projectiles: projectiles),
       size: Size.infinite,
     );
   }
@@ -25,13 +25,13 @@ class GameCanvas extends StatelessWidget {
 
 class _GamePainter extends CustomPainter {
   final List<Alien> aliens;
-  final PlayerShip? player;
+  final List<PlayerShip> players;
   final List<Obstacle> obstacles;
   final List<Projectile> projectiles;
   final double now;
   final ForceField? forceField;
 
-  _GamePainter({required this.aliens, required this.player, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
+  _GamePainter({required this.aliens, required this.players, required this.obstacles, required this.projectiles, required this.now, required this.forceField});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -58,8 +58,7 @@ class _GamePainter extends CustomPainter {
       }
     }
 
-    final s = player;
-    if (s != null) {
+    for (final s in players) {
       final asset = s.assetName;
       final img = (asset != null) ? SpriteStore.instance.imageFor(asset) : null;
       if (asset != null && img == null) {
@@ -117,6 +116,6 @@ class _GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GamePainter old) {
-    return old.aliens != aliens || old.player != player || old.obstacles != obstacles || old.projectiles != projectiles || old.forceField != forceField || old.now != now;
+    return old.aliens != aliens || old.players != players || old.obstacles != obstacles || old.projectiles != projectiles || old.forceField != forceField || old.now != now;
   }
 }

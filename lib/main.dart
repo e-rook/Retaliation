@@ -137,10 +137,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
 
     _gc.tick(dt);
-    if (_gc.projectiles.isNotEmpty || _gc.player != null) {
+    if (_gc.projectiles.isNotEmpty || _gc.players.isNotEmpty) {
       if (_gc.elapsedSeconds - _lastTelemetry >= 1.0) {
         _lastTelemetry = _gc.elapsedSeconds;
-        logv('State', 'aliens=${_gc.aliens.length}, obstacles=${_gc.obstacles.length}, projectiles=${_gc.projectiles.length}');
+        logv('State', 'aliens=${_gc.aliens.length}, obstacles=${_gc.obstacles.length}, projectiles=${_gc.projectiles.length}, players=${_gc.players.length}');
       }
       setState(() {});
     }
@@ -182,7 +182,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       final Map<String, dynamic> manifest = json.decode(manifestStr);
       final keys = manifest.keys.toSet();
       final paths = <String?>[
-        lvl.ship.asset,
+        for (final s in (lvl.ships.isNotEmpty ? lvl.ships : [lvl.ship])) s.asset,
         for (final a in lvl.aliens) a.asset,
         for (final o in lvl.obstacles) o.asset,
       ].whereType<String>().toSet();
@@ -384,14 +384,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     return GameControllerProvider(
       controller: _gc,
       child: GameScaffold(
-        canvas: GameCanvas(
-          aliens: _gc.aliens,
-          player: _gc.player,
-          obstacles: _gc.obstacles,
-          projectiles: _gc.projectiles,
-          now: _gc.elapsedSeconds,
-          forceField: _gc.forceField,
-        ),
+      canvas: GameCanvas(
+        aliens: _gc.aliens,
+        players: _gc.players,
+        obstacles: _gc.obstacles,
+        projectiles: _gc.projectiles,
+        now: _gc.elapsedSeconds,
+        forceField: _gc.forceField,
+      ),
         overlays: overlayState,
         onOpenMenu: () {
           Navigator.of(context).pushAndRemoveUntil(

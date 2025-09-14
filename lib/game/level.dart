@@ -218,6 +218,7 @@ class LevelConfig {
   final List<AlienSpec> aliens;
   final List<ObstacleSpec> obstacles;
   final ShipSpec ship;
+  final List<ShipSpec> ships; // optional multi-ship support; if empty, use [ship]
   final DanceSpec dance;
   final ForceFieldSpec? forceField;
 
@@ -233,6 +234,7 @@ class LevelConfig {
     required this.aliens,
     required this.obstacles,
     required this.ship,
+    this.ships = const [],
     required this.dance,
     this.forceField,
   });
@@ -249,6 +251,9 @@ class LevelConfig {
         aliens: ((j['aliens'] as List?) ?? []).map((e) => AlienSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
         obstacles: ((j['obstacles'] as List?) ?? []).map((e) => ObstacleSpec.fromJson(Map<String, dynamic>.from(e))).toList(),
         ship: ShipSpec.fromJson(Map<String, dynamic>.from(j['ship'] as Map? ?? {})),
+        ships: ((j['ships'] as List?) ?? const [])
+            .map((e) => ShipSpec.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
         dance: DanceSpec.fromJson(Map<String, dynamic>.from(j['dance'] as Map? ?? {})),
         forceField: j['forceField'] == null ? null : ForceFieldSpec.fromJson(Map<String, dynamic>.from(j['forceField'] as Map)),
       );
