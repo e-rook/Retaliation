@@ -75,6 +75,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   String? _loadError;
   bool _tickLoggedOnce = false;
   double _lastTelemetry = 0;
+  bool _showIntro = false;
 
   // Tunables
 
@@ -117,6 +118,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     }
     final dt = (elapsed - _lastTick).inMicroseconds / 1e6; // seconds
     _lastTick = elapsed;
+    if (_showIntro) {
+      return; // pause game/timer during intro overlay
+    }
 
     _gc.elapsedSeconds += dt;
     if (!_tickLoggedOnce) {
@@ -158,6 +162,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       } else {
         setState(() {
           _level = lvl;
+          _showIntro = lvl.description.isNotEmpty;
         });
         // Debug: verify that sprite assets are present in the bundle
         _debugCheckSpriteAssets(lvl);
@@ -234,6 +239,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         _level = lvl;
         _lastLayoutLevelId = null;
         _lastTick = Duration.zero;
+        _showIntro = lvl.description.isNotEmpty;
       });
     } catch (e) {
       if (!mounted) return;
@@ -291,6 +297,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         _currentLevelPath = nextPath;
         _lastLayoutLevelId = null;
         _lastTick = Duration.zero;
+        _showIntro = lvl.description.isNotEmpty;
       });
     } catch (e) {
       if (!mounted) return;
@@ -344,6 +351,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       overlayState = GameOverlayState.error(_loadError!);
     } else if (_level == null) {
       overlayState = const GameOverlayState.loading();
+    } else if (_showIntro && _level!.description.isNotEmpty) {
+      overlayState = GameOverlayState.intro(title: _level!.title, description: _level!.description);
     } else if (_won) {
       overlayState = GameOverlayState.win(_level!.winMessage);
       overlayNext = _goToNextLevel;
@@ -398,6 +407,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         onOverlayMenu: overlayMenu,
         onOverlayRetry: overlayRetry,
         onOverlayNext: overlayNext,
+        onOverlayIntroDone: () => setState(() => _showIntro = false),
       ),
     );
   }

@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'widgets/typewriter.dart';
 
 class GameOverlayState {
   final GameOverlayKind kind;
   final String? message;
+  final String? title;
+  final String? description;
 
-  const GameOverlayState._(this.kind, this.message);
-  const GameOverlayState.none() : this._(GameOverlayKind.none, null);
-  const GameOverlayState.loading() : this._(GameOverlayKind.loading, null);
-  const GameOverlayState.error(String msg) : this._(GameOverlayKind.error, msg);
-  const GameOverlayState.win(String msg) : this._(GameOverlayKind.win, msg);
-  const GameOverlayState.lose(String msg) : this._(GameOverlayKind.lose, msg);
+  const GameOverlayState._(this.kind, {this.message, this.title, this.description});
+  const GameOverlayState.none() : this._(GameOverlayKind.none);
+  const GameOverlayState.loading() : this._(GameOverlayKind.loading);
+  const GameOverlayState.error(String msg) : this._(GameOverlayKind.error, message: msg);
+  const GameOverlayState.win(String msg) : this._(GameOverlayKind.win, message: msg);
+  const GameOverlayState.lose(String msg) : this._(GameOverlayKind.lose, message: msg);
+  const GameOverlayState.intro({required String title, required String description})
+      : this._(GameOverlayKind.intro, title: title, description: description);
 }
 
-enum GameOverlayKind { none, loading, error, win, lose }
+enum GameOverlayKind { none, loading, error, win, lose, intro }
 
 class GameOverlays extends StatelessWidget {
   final GameOverlayState state;
@@ -20,8 +25,9 @@ class GameOverlays extends StatelessWidget {
   final VoidCallback? onMenu;
   final VoidCallback? onRetry;
   final VoidCallback? onNext;
+  final VoidCallback? onIntroDone;
 
-  const GameOverlays({super.key, required this.state, this.onSelectLevel, this.onMenu, this.onRetry, this.onNext});
+  const GameOverlays({super.key, required this.state, this.onSelectLevel, this.onMenu, this.onRetry, this.onNext, this.onIntroDone});
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +41,13 @@ class GameOverlays extends StatelessWidget {
         break;
       case GameOverlayKind.error:
         overlay = _MessageCard(text: state.message ?? 'Error');
+        break;
+      case GameOverlayKind.intro:
+        overlay = _IntroCard(
+          title: state.title ?? '',
+          description: state.description ?? '',
+          onDone: onIntroDone,
+        );
         break;
       case GameOverlayKind.win:
         overlay = _WinLoseCard(
@@ -132,6 +145,48 @@ class _WinLoseCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IntroCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final VoidCallback? onDone;
+
+  const _IntroCard({required this.title, required this.description, this.onDone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF000000).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            TypewriterText(
+              text: description,
+              onDone: onDone,
+              style: const TextStyle(fontFamily: 'Courier', color: Colors.red, fontSize: 16),
+              textAlign: TextAlign.center,
+              maxLines: 24,
+            ),
+          ],
+        ),
       ),
     );
   }

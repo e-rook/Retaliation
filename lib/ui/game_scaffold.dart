@@ -14,6 +14,7 @@ class GameScaffold extends StatelessWidget {
   final VoidCallback? onOverlayMenu;
   final VoidCallback? onOverlayRetry;
   final VoidCallback? onOverlayNext;
+  final VoidCallback? onOverlayIntroDone;
 
   const GameScaffold({
     super.key,
@@ -28,6 +29,7 @@ class GameScaffold extends StatelessWidget {
     this.onOverlayMenu,
     this.onOverlayRetry,
     this.onOverlayNext,
+    this.onOverlayIntroDone,
   });
 
   @override
@@ -41,7 +43,7 @@ class GameScaffold extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 GestureDetector(behavior: HitTestBehavior.opaque, onTapDown: onTapDown, child: canvas),
-                GameOverlays(state: overlays, onSelectLevel: onOverlaySelectLevel, onMenu: onOverlayMenu, onRetry: onOverlayRetry, onNext: onOverlayNext),
+                GameOverlays(state: overlays, onSelectLevel: onOverlaySelectLevel, onMenu: onOverlayMenu, onRetry: onOverlayRetry, onNext: onOverlayNext, onIntroDone: onOverlayIntroDone),
                 GameHud(showTimer: showTimer, timerText: timerText, onOpenMenu: onOpenMenu),
               ],
             );
